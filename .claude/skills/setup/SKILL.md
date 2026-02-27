@@ -1,9 +1,9 @@
 ---
 name: setup
-description: Run initial NanoClaw setup. Use when user wants to install dependencies, authenticate WhatsApp, register their main channel, or start the background services. Triggers on "setup", "install", "configure nanoclaw", or first-time setup requests.
+description: Run initial SolClaw setup. Use when user wants to install dependencies, authenticate Telegram/WhatsApp, configure Solana wallet (mandatory), register their main channel, or start the background services. Triggers on "setup", "install", "configure solclaw", or first-time setup requests.
 ---
 
-# NanoClaw Setup
+# SolClaw Setup
 
 Run setup steps automatically. Only pause when user action is required (WhatsApp authentication, configuration choices). Setup uses `bash setup.sh` for bootstrap, then `npx tsx setup/index.ts --step <name>` for all other steps. Steps emit structured status blocks to stdout. Verbose logs go to `logs/setup.log`.
 
@@ -129,11 +129,74 @@ AskUserQuestion: Agent access to external directories?
 **No:** `npx tsx setup/index.ts --step mounts -- --empty`
 **Yes:** Collect paths/permissions. `npx tsx setup/index.ts --step mounts -- --json '{"allowedRoots":[...],"blockedPatterns":[],"nonMainReadOnly":true}'`
 
-## 10. Start Service
+## 10. Solana Wallet Configuration (MANDATORY for SolClaw)
+
+**SolClaw requires Solana wallet configuration to start.** This step is mandatory.
+
+### 10a. Signing Method
+
+AskUserQuestion: How should Solana transactions be signed?
+
+- **Standard (local keypair)** — recommended. Private key stored locally, transactions signed on device.
+- **Crossmint (custodial API)** — transactions signed via Crossmint API. Requires Crossmint API key.
+
+### 10b. Standard Path (local keypair)
+
+AskUserQuestion: How would you like to configure your wallet?
+
+1. **Generate new wallet (Recommended for testing)** → Run `npx tsx setup/index.ts --step solana`. Select "Generate new keypair". IMPORTANT: The private key is displayed ONCE - user must save it.
+2. **Use existing private key** → Run `npx tsx setup/index.ts --step solana`. Select "Paste base58 private key". Do NOT log or display the private key in chat.
+3. **Load from keypair file** → Run `npx tsx setup/index.ts --step solana`. Select "Load from keypair JSON file". Default: `~/.config/solana/id.json`.
+
+### 10b-alt. Crossmint Path (custodial)
+
+Run `npx tsx setup/index.ts --step solana`. Select "Crossmint (custodial API)". User provides:
+- Crossmint API key
+- Environment (production/staging)
+- Optionally, existing wallet public key
+
+### 10c. Network Selection
+
+AskUserQuestion: Which Solana network?
+
+- **mainnet** - Production network with real SOL (default)
+- **devnet** - Testnet with free airdrops (recommended for testing). After setup, user can get free SOL: `solana airdrop 1 <PUBLIC_KEY> --url devnet`
+- **testnet** - Alternative testnet
+- **custom URL** - Custom RPC provider (e.g., `https://rpc.helius.xyz`)
+
+### 10d. Optional Protocol API Keys
+
+After network selection, the setup script asks about optional protocol API keys. These are saved to `.env` and passed to the container automatically.
+
+AskUserQuestion: Do you have API keys for any of these protocols? (each asked individually)
+- DFlow (trading/order flow) — contact hello@dflow.net
+- Jupiter (premium swap rates) — get key at portal.jup.ag
+- Breeze (yield/lending) — create org and API key at portal.breeze.baby
+- Helius (enhanced RPC/webhooks) — get key at helius.dev
+
+For each confirmed, the key is collected and appended to `.env`.
+
+**After configuration:**
+- Config is saved to `config/solana-config.json` and `.env.solana`
+- Protocol API keys (if any) are saved to `.env`
+- Verify with: `npx tsx tools/solana-balance.ts` (should show wallet balance)
+- Record the public key for the user
+
+**If step fails:**
+- Check that `@solana/web3.js` and `bs58` are installed: `npm list @solana/web3.js bs58`
+- Re-run bootstrap if dependencies are missing: `bash setup.sh`
+- Check `logs/setup.log` for detailed errors
+
+**Important security notes:**
+- `.env.solana` contains private key - never commit to git (already in `.gitignore`)
+- `config/solana-config.json` also contains private key - never commit (already in `.gitignore`)
+- For production: Use a dedicated wallet with minimal funds for testing first
+
+## 11. Start Service
 
 If service already running: unload first.
-- macOS: `launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist`
-- Linux: `systemctl --user stop nanoclaw` (or `systemctl stop nanoclaw` if root)
+- macOS: `launchctl unload ~/Library/LaunchAgents/com.solclaw.plist` (or `com.nanoclaw.plist` if using original NanoClaw)
+- Linux: `systemctl --user stop solclaw` (or `systemctl stop solclaw` if root)
 
 Run `npx tsx setup/index.ts --step service` and parse the status block.
 
@@ -159,19 +222,31 @@ Replace `USERNAME` with the actual username (from `whoami`). Run the two `sudo` 
 - Linux: check `systemctl --user status nanoclaw`.
 - Re-run the service step after fixing.
 
-## 11. Verify
+## 12. Verify
 
 Run `npx tsx setup/index.ts --step verify` and parse the status block.
 
 **If STATUS=failed, fix each:**
-- SERVICE=stopped → `npm run build`, then restart: `launchctl kickstart -k gui/$(id -u)/com.nanoclaw` (macOS) or `systemctl --user restart nanoclaw` (Linux) or `bash start-nanoclaw.sh` (WSL nohup)
-- SERVICE=not_found → re-run step 10
+- SERVICE=stopped → `npm run build`, then restart: `launchctl kickstart -k gui/$(id -u)/com.solclaw` (macOS) or `systemctl --user restart solclaw` (Linux) or `bash start-solclaw.sh` (WSL nohup)
+- SERVICE=not_found → re-run step 11
 - CREDENTIALS=missing → re-run step 4
-- WHATSAPP_AUTH=not_found → re-run step 5
+- WHATSAPP_AUTH=not_found → re-run step 5 (or skip if Telegram-only)
 - REGISTERED_GROUPS=0 → re-run steps 7-8
 - MOUNT_ALLOWLIST=missing → `npx tsx setup/index.ts --step mounts -- --empty`
+- SOLANA_CONFIG=missing → re-run step 10 (Solana wallet configuration)
 
-Tell user to test: send a message in their registered chat. Show: `tail -f logs/nanoclaw.log`
+**Additional Solana verification:**
+- Check Solana config exists: `ls -la config/solana-config.json .env.solana`
+- Test balance tool: `npx tsx tools/solana-balance.ts`
+- Test price tool: `npx tsx tools/solana-price.ts SOL`
+- If startup fails with "Solana not configured", ensure step 10 completed successfully
+
+Tell user to test: send a message in their registered chat. Show: `tail -f logs/solclaw.log`
+
+**For Solana testing:**
+- Try: "What's my balance?"
+- Try: "Price of SOL"
+- Fund wallet if needed: Show public key from step 10, user can send SOL or use `solana airdrop 1 <PUBLIC_KEY>` on devnet
 
 ## Troubleshooting
 

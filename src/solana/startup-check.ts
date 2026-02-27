@@ -20,8 +20,6 @@ export async function requireSolanaConfig(): Promise<void> {
     console.error(chalk.red('\n❌ Solana not configured!\n'));
     console.error(chalk.white('SolClaw requires Solana to be set up before starting.\n'));
     console.error(chalk.yellow('Run the following command to configure your wallet:\n'));
-    console.error(chalk.cyan('  npm run setup:solana\n'));
-    console.error(chalk.gray('Or run the full setup:\n'));
     console.error(chalk.cyan('  npm run setup\n'));
 
     logger.error('Solana not configured. Exiting.');
@@ -41,7 +39,7 @@ export async function checkSolanaConfig(): Promise<boolean> {
     logger.info('✓ Solana features enabled');
   } else {
     logger.warn('⚠ Solana not configured. Some features will be disabled.');
-    logger.warn('Run: npm run setup:solana');
+    logger.warn('Run: npm run setup');
   }
 
   return isConfigured;

@@ -1,9 +1,9 @@
 /**
  * Solana setup step
- * Configures Solana wallet and plugins for agent operations
+ * Configures Solana wallet with standard (local keypair) or Crossmint (custodial) signing
  */
 
-import { select, password, input, checkbox } from '@inquirer/prompts';
+import { select, password, input, confirm } from '@inquirer/prompts';
 import fs from 'fs/promises';
 import path from 'path';
 import { Keypair } from '@solana/web3.js';
@@ -18,87 +18,159 @@ export async function run(args: string[]): Promise<void> {
   emitStatus('SOLANA_SETUP', { STATUS: 'starting' });
 
   try {
-    // Step 1: Wallet Configuration
-    console.log(chalk.yellow('Step 1: Wallet Configuration'));
+    // Step 1: Signing Method
+    console.log(chalk.yellow('Step 1: Signing Method'));
 
-    const keySource = await select({
-      message: 'How would you like to provide the private key?',
+    const signingMethod = await select({
+      message: 'How should transactions be signed?',
       choices: [
         {
-          name: 'Paste base58 private key (recommended)',
-          value: 'base58',
+          name: 'Standard (local keypair) — recommended',
+          value: 'standard' as const,
         },
         {
-          name: 'Load from keypair JSON file',
-          value: 'file',
-        },
-        {
-          name: 'Generate new keypair',
-          value: 'generate',
+          name: 'Crossmint (custodial API)',
+          value: 'crossmint' as const,
         },
       ],
     });
 
-    let privateKey: string;
     let publicKey: string;
+    let privateKey: string | undefined;
+    let crossmintApiKey: string | undefined;
+    let crossmintEnvironment: string | undefined;
 
-    if (keySource === 'base58') {
-      privateKey = await password({
-        message: 'Paste base58 private key:',
-        validate: (value) => {
-          try {
-            const decoded = bs58.decode(value);
-            return decoded.length === 64 ? true : 'Invalid key length (expected 64 bytes)';
-          } catch {
-            return 'Invalid base58 format';
-          }
-        },
+    if (signingMethod === 'standard') {
+      // Standard path: local keypair
+      console.log(chalk.yellow('\nStep 2: Wallet Configuration'));
+
+      const keySource = await select({
+        message: 'How would you like to provide the private key?',
+        choices: [
+          {
+            name: 'Paste base58 private key (recommended)',
+            value: 'base58',
+          },
+          {
+            name: 'Load from keypair JSON file',
+            value: 'file',
+          },
+          {
+            name: 'Generate new keypair',
+            value: 'generate',
+          },
+        ],
       });
 
-      // Derive public key
-      const secretKey = bs58.decode(privateKey);
-      const keypair = Keypair.fromSecretKey(secretKey);
-      publicKey = keypair.publicKey.toBase58();
+      if (keySource === 'base58') {
+        privateKey = await password({
+          message: 'Paste base58 private key:',
+          validate: (value) => {
+            try {
+              const decoded = bs58.decode(value);
+              return decoded.length === 64 ? true : 'Invalid key length (expected 64 bytes)';
+            } catch {
+              return 'Invalid base58 format';
+            }
+          },
+        });
 
-      console.log(chalk.green('\n✓ Keypair validated'));
-      console.log(chalk.white(`  Public Key: ${publicKey}\n`));
-    } else if (keySource === 'file') {
-      const keypath = await input({
-        message: 'Path to keypair JSON file:',
-        default: '~/.config/solana/id.json',
-      });
+        const secretKey = bs58.decode(privateKey);
+        const keypair = Keypair.fromSecretKey(secretKey);
+        publicKey = keypair.publicKey.toBase58();
 
-      // Expand ~ to home directory
-      const expandedPath = keypath.replace(/^~/, process.env.HOME || process.env.USERPROFILE || '');
+        console.log(chalk.green('\n✓ Keypair validated'));
+        console.log(chalk.white(`  Public Key: ${publicKey}\n`));
+      } else if (keySource === 'file') {
+        const keypath = await input({
+          message: 'Path to keypair JSON file:',
+          default: '~/.config/solana/id.json',
+        });
 
-      // Load and convert to base58
-      const keypairData = JSON.parse(await fs.readFile(expandedPath, 'utf-8'));
-      const keypair = Keypair.fromSecretKey(Uint8Array.from(keypairData));
-      privateKey = bs58.encode(keypair.secretKey);
-      publicKey = keypair.publicKey.toBase58();
+        const expandedPath = keypath.replace(/^~/, process.env.HOME || process.env.USERPROFILE || '');
+        const keypairData = JSON.parse(await fs.readFile(expandedPath, 'utf-8'));
+        const keypair = Keypair.fromSecretKey(Uint8Array.from(keypairData));
+        privateKey = bs58.encode(keypair.secretKey);
+        publicKey = keypair.publicKey.toBase58();
 
-      console.log(chalk.green('\n✓ Keypair loaded from file'));
-      console.log(chalk.white(`  Public Key: ${publicKey}\n`));
+        console.log(chalk.green('\n✓ Keypair loaded from file'));
+        console.log(chalk.white(`  Public Key: ${publicKey}\n`));
+      } else {
+        const keypair = Keypair.generate();
+        privateKey = bs58.encode(keypair.secretKey);
+        publicKey = keypair.publicKey.toBase58();
+
+        console.log(chalk.green('\n✓ New keypair generated!'));
+        console.log(chalk.yellow('\n⚠️  SAVE THIS PRIVATE KEY - You will not see it again!\n'));
+        console.log(chalk.white(`Public Key:  ${chalk.cyan(publicKey)}`));
+        console.log(chalk.white(`Private Key: ${chalk.cyan(privateKey)}\n`));
+        console.log(chalk.gray('Fund your wallet before using:'));
+        console.log(chalk.gray(`  solana airdrop 1 ${publicKey}\n`));
+      }
     } else {
-      // Generate new keypair
-      const keypair = Keypair.generate();
-      privateKey = bs58.encode(keypair.secretKey);
-      publicKey = keypair.publicKey.toBase58();
+      // Crossmint path
+      console.log(chalk.yellow('\nStep 2: Crossmint Configuration'));
 
-      console.log(chalk.green('\n✓ New keypair generated!'));
-      console.log(chalk.yellow('\n⚠️  SAVE THIS PRIVATE KEY - You will not see it again!\n'));
-      console.log(chalk.white(`Public Key:  ${chalk.cyan(publicKey)}`));
-      console.log(chalk.white(`Private Key: ${chalk.cyan(privateKey)}\n`));
-      console.log(chalk.gray('Fund your wallet before using:'));
-      console.log(chalk.gray(`  solana airdrop 1 ${publicKey}\n`));
+      crossmintApiKey = await password({
+        message: 'Crossmint API key:',
+        validate: (value) => value.length > 0 ? true : 'API key is required',
+      });
+
+      crossmintEnvironment = await select({
+        message: 'Crossmint environment:',
+        choices: [
+          { name: 'Production', value: 'production' },
+          { name: 'Staging', value: 'staging' },
+        ],
+      });
+
+      publicKey = await input({
+        message: 'Wallet public key (or leave blank to create via Crossmint):',
+        default: '',
+      });
+
+      if (!publicKey) {
+        console.log(chalk.yellow('\nNote: A wallet will be created via Crossmint on first use.'));
+        publicKey = 'pending-crossmint-creation';
+      }
     }
 
-    // Step 2: RPC Configuration
-    console.log(chalk.yellow('\nStep 2: RPC Configuration'));
-    const rpcUrl = await input({
-      message: 'Solana RPC URL:',
-      default: 'https://api.mainnet-beta.solana.com',
+    // Step 3: RPC Configuration
+    console.log(chalk.yellow('\nStep 3: RPC Configuration'));
+
+    const networkChoice = await select({
+      message: 'Select Solana network:',
+      choices: [
+        { name: 'Mainnet (Production - real SOL)', value: 'mainnet' },
+        { name: 'Devnet (Testing - free airdrops available)', value: 'devnet' },
+        { name: 'Testnet', value: 'testnet' },
+        { name: 'Custom RPC URL', value: 'custom' },
+      ],
     });
+
+    let rpcUrl: string;
+
+    if (networkChoice === 'mainnet') {
+      rpcUrl = 'https://api.mainnet-beta.solana.com';
+      console.log(chalk.cyan('Using Mainnet'));
+    } else if (networkChoice === 'devnet') {
+      rpcUrl = 'https://api.devnet.solana.com';
+      console.log(chalk.cyan('Using Devnet (recommended for testing)'));
+      if (signingMethod === 'standard') {
+        console.log(chalk.gray('Get free SOL: solana airdrop 1 ' + publicKey + ' --url devnet'));
+      }
+    } else if (networkChoice === 'testnet') {
+      rpcUrl = 'https://api.testnet.solana.com';
+      console.log(chalk.cyan('Using Testnet'));
+    } else {
+      rpcUrl = await input({
+        message: 'Enter custom RPC URL:',
+        default: 'https://api.mainnet-beta.solana.com',
+        validate: (value) => {
+          return value.startsWith('http') ? true : 'Must be a valid HTTP(S) URL';
+        },
+      });
+    }
 
     const defaultSlippage = await input({
       message: 'Default slippage (basis points):',
@@ -109,32 +181,45 @@ export async function run(args: string[]): Promise<void> {
       },
     });
 
-    // Step 3: Plugin Selection
-    console.log(chalk.yellow('\n\nStep 3: Plugin Selection'));
-    const selectedPlugins = await checkbox({
-      message: 'Select Solana Agent Kit plugins to enable:',
-      choices: [
-        { name: 'Token Plugin (transfers, swaps, deployments)', value: 'token', checked: true },
-        { name: 'DeFi Plugin (Jupiter, Raydium, Drift, Meteora, etc.)', value: 'defi', checked: true },
-        { name: 'NFT Plugin (Metaplex, 3.Land)', value: 'nft', checked: true },
-        { name: 'Misc Plugin (domains, prices, trending, faucet)', value: 'misc', checked: true },
-        { name: 'Blinks Plugin (arcade games)', value: 'blinks', checked: false },
-      ],
-    });
+    // Step 4: Optional Protocol API Keys
+    console.log(chalk.yellow('\nStep 4: Optional Protocol API Keys'));
+    console.log(chalk.gray('These are optional. The agent works without them but some protocols offer better rates or features with an API key.\n'));
 
-    const plugins: Record<string, boolean> = {};
-    selectedPlugins.forEach(plugin => {
-      plugins[plugin] = true;
-    });
+    const protocolKeys: Record<string, string> = {};
+
+    const wantsDflow = await confirm({ message: 'Do you have a DFlow API key?', default: false });
+    if (wantsDflow) {
+      const key = await password({ message: 'DFlow API key:' });
+      if (key) protocolKeys.DFLOW_API_KEY = key;
+    }
+
+    const wantsJupiter = await confirm({ message: 'Do you have a Jupiter API key?', default: false });
+    if (wantsJupiter) {
+      const key = await password({ message: 'Jupiter API key:' });
+      if (key) protocolKeys.JUPITER_API_KEY = key;
+    }
+
+    const wantsBreeze = await confirm({ message: 'Do you have a Breeze API key?', default: false });
+    if (wantsBreeze) {
+      const key = await password({ message: 'Breeze API key:' });
+      if (key) protocolKeys.BREEZE_API_KEY = key;
+    }
+
+    const wantsHelius = await confirm({ message: 'Do you have a Helius API key?', default: false });
+    if (wantsHelius) {
+      const key = await password({ message: 'Helius API key:' });
+      if (key) protocolKeys.HELIUS_API_KEY = key;
+    }
 
     // Build config
-    const config = {
+    const config: Record<string, any> = {
       wallet: {
-        provider: 'solana-agent-kit',
-        privateKey,
+        signingMethod,
         publicKey,
+        ...(privateKey && { privateKey }),
+        ...(crossmintApiKey && { crossmintApiKey }),
+        ...(crossmintEnvironment && { crossmintEnvironment }),
       },
-      plugins,
       preferences: {
         rpcUrl,
         defaultSlippage: parseInt(defaultSlippage),
@@ -153,13 +238,49 @@ export async function run(args: string[]): Promise<void> {
       '# SolClaw Solana Configuration',
       '# Generated during setup',
       '',
-      `SOLANA_PRIVATE_KEY=${privateKey}`,
       `SOLANA_RPC_URL=${rpcUrl}`,
-      '',
+      `SOLANA_SIGNING_METHOD=${signingMethod}`,
     ];
+
+    if (privateKey) {
+      envLines.push(`SOLANA_PRIVATE_KEY=${privateKey}`);
+    }
+    if (crossmintApiKey) {
+      envLines.push(`CROSSMINT_API_KEY=${crossmintApiKey}`);
+    }
+
+    envLines.push('');
 
     const envPath = path.join(process.cwd(), '.env.solana');
     await fs.writeFile(envPath, envLines.join('\n'));
+
+    // Append protocol API keys to .env (read by container-runner)
+    if (Object.keys(protocolKeys).length > 0) {
+      const mainEnvPath = path.join(process.cwd(), '.env');
+      let existing = '';
+      try {
+        existing = await fs.readFile(mainEnvPath, 'utf-8');
+      } catch {
+        // .env doesn't exist yet, that's fine
+      }
+
+      const newLines: string[] = [];
+      if (existing && !existing.endsWith('\n')) newLines.push('');
+      newLines.push('# Protocol API Keys (added by Solana setup)');
+      for (const [key, value] of Object.entries(protocolKeys)) {
+        // Remove existing line for this key if present
+        if (existing.includes(`${key}=`)) {
+          existing = existing
+            .split('\n')
+            .filter((line) => !line.startsWith(`${key}=`))
+            .join('\n');
+        }
+        newLines.push(`${key}=${value}`);
+      }
+      newLines.push('');
+
+      await fs.writeFile(mainEnvPath, existing + newLines.join('\n'));
+    }
 
     // Summary
     console.log(chalk.green.bold('\n✅ Solana Configuration Complete!\n'));
@@ -167,22 +288,21 @@ export async function run(args: string[]): Promise<void> {
     console.log(chalk.cyan(`  ${configPath}`));
     console.log(chalk.cyan(`  ${envPath}\n`));
 
-    console.log(chalk.white('Enabled plugins:'));
-    Object.keys(plugins).forEach(p => {
-      console.log(chalk.cyan(`  ✓ ${p}`));
-    });
+    console.log(chalk.white(`Signing method: ${chalk.cyan(signingMethod)}`));
+    console.log(chalk.white(`Network: ${chalk.cyan(rpcUrl)}\n`));
 
-    console.log(chalk.white('\nYour agent can now:'));
-    console.log(chalk.cyan('  • Execute 60+ Solana actions'));
-    console.log(chalk.cyan('  • Trade tokens via Jupiter'));
-    console.log(chalk.cyan('  • Stake SOL, lend USDC'));
-    console.log(chalk.cyan('  • Deploy tokens & mint NFTs'));
-    console.log(chalk.cyan('  • Access price feeds & trending data\n'));
+    console.log(chalk.white('Your agent can now:'));
+    console.log(chalk.cyan('  • Check wallet balances'));
+    console.log(chalk.cyan('  • Get token prices via Jupiter'));
+    console.log(chalk.cyan('  • Swap tokens via Jupiter Ultra'));
+    console.log(chalk.cyan('  • Transfer SOL and SPL tokens'));
+    console.log(chalk.cyan('  • Access DeFi protocols via skills\n'));
 
     emitStatus('SOLANA_SETUP', {
       STATUS: 'complete',
       PUBLIC_KEY: publicKey,
       RPC_URL: rpcUrl,
+      SIGNING_METHOD: signingMethod,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

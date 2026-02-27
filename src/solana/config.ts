@@ -1,27 +1,18 @@
 /**
- * Solana Agent Configuration Management
- * Handles loading and validation of Solana agent config
+ * Solana Configuration Management
+ * Handles loading and validation of Solana config
  */
 
 import fs from 'fs/promises';
 import path from 'path';
-import { SolanaAgentConfig } from './agent.js';
 
 export interface SolanaConfig {
   wallet: {
-    provider: string;
-    privateKey: string;
+    signingMethod: 'standard' | 'crossmint';
+    privateKey?: string;
     publicKey: string;
-    apiKey?: string;
-    email?: string;
-    environment?: string;
-  };
-  plugins: {
-    token?: boolean;
-    nft?: boolean;
-    defi?: boolean;
-    misc?: boolean;
-    blinks?: boolean;
+    crossmintApiKey?: string;
+    crossmintEnvironment?: string;
   };
   preferences: {
     rpcUrl: string;
@@ -33,16 +24,23 @@ export interface SolanaConfig {
 
 /**
  * Load Solana configuration from file
- * @param configPath - Path to config file (default: config/solana-config.json)
  */
 export async function loadSolanaConfig(
   configPath: string = 'config/solana-config.json'
 ): Promise<SolanaConfig> {
   const fullPath = path.resolve(configPath);
   const configData = await fs.readFile(fullPath, 'utf-8');
-  const config = JSON.parse(configData) as SolanaConfig;
+  const raw = JSON.parse(configData);
 
-  // Validate config
+  // Backwards compat: treat old provider: 'solana-agent-kit' as signingMethod: 'standard'
+  if (raw.wallet && !raw.wallet.signingMethod) {
+    if (raw.wallet.provider === 'solana-agent-kit' || raw.wallet.privateKey) {
+      raw.wallet.signingMethod = 'standard';
+    }
+  }
+
+  const config = raw as SolanaConfig;
+
   if (!config.wallet) {
     throw new Error('Invalid config: missing wallet configuration');
   }
@@ -55,38 +53,7 @@ export async function loadSolanaConfig(
 }
 
 /**
- * Convert SolanaConfig to SolanaAgentConfig
- */
-export function configToAgentConfig(config: SolanaConfig): SolanaAgentConfig {
-  if (config.wallet.provider !== 'solana-agent-kit') {
-    throw new Error(
-      `Unsupported wallet provider: ${config.wallet.provider}. Expected: solana-agent-kit`
-    );
-  }
-
-  if (!config.wallet.privateKey) {
-    throw new Error('Private key not found in config');
-  }
-
-  return {
-    privateKey: config.wallet.privateKey,
-    rpcUrl: config.preferences.rpcUrl,
-    openAIKey: process.env.OPENAI_API_KEY,
-  };
-}
-
-/**
- * Load agent config from file and convert to agent config
- */
-export async function loadAgentConfig(
-  configPath?: string
-): Promise<SolanaAgentConfig> {
-  const config = await loadSolanaConfig(configPath);
-  return configToAgentConfig(config);
-}
-
-/**
- * Check if Solana agent is configured
+ * Check if Solana is configured
  */
 export async function isSolanaConfigured(
   configPath: string = 'config/solana-config.json'
@@ -95,6 +62,12 @@ export async function isSolanaConfigured(
     const fullPath = path.resolve(configPath);
     await fs.access(fullPath);
     const config = await loadSolanaConfig(configPath);
+
+    if (config.wallet.signingMethod === 'crossmint') {
+      return config.setupComplete && !!config.wallet.crossmintApiKey;
+    }
+
+    // Standard signing
     return config.setupComplete && !!config.wallet.privateKey;
   } catch {
     return false;

@@ -44,4 +44,5 @@ agent-junk
 launchd/
 
 # Agent-generated utility scripts
-tools/
+tools/created_tools/
+skills/

@@ -29,8 +29,8 @@ RUN apt-get update && apt-get install -y \
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install agent-browser and claude-code globally
-RUN npm install -g agent-browser @anthropic-ai/claude-code
+# Install agent-browser, claude-code, and tsx globally (before NODE_OPTIONS is set)
+RUN npm install -g agent-browser @anthropic-ai/claude-code tsx
 
 # Create app directory
 WORKDIR /app
@@ -46,6 +46,13 @@ COPY agent-runner/ ./
 
 # Build TypeScript
 RUN npm run build
+
+# Enable ESM interop and tsx module resolution globally (AFTER all npm installs):
+# --experimental-require-module: lets require() load ESM packages
+# --import tsx/esm/register: registers tsx's resolver for ALL node processes,
+#   fixing directory imports (e.g. '@coral-xyz/anchor/dist/cjs/utils/bytes' → .../bytes/index.js)
+#   that Meteora DLMM, Orca legacy, and other Anchor-based SDKs rely on
+ENV NODE_OPTIONS="--experimental-require-module --import tsx/esm/register"
 
 # Create workspace directories
 RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input

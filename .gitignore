@@ -45,4 +45,4 @@ launchd/
 
 # Agent-generated utility scripts
 tools/created_tools/
-skills/
+/skills/

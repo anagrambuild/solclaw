@@ -21,18 +21,20 @@ Kamino Finance provides:
 
 ### Installation
 
+**IMPORTANT:** Kamino SDKs have complex peer dependencies that conflict without `--legacy-peer-deps`. Always use this flag:
+
 ```bash
 # Lending SDK
-npm install @kamino-finance/klend-sdk
+npm install @kamino-finance/klend-sdk --legacy-peer-deps
 
 # Liquidity SDK
-npm install @kamino-finance/kliquidity-sdk
+npm install @kamino-finance/kliquidity-sdk --legacy-peer-deps
 
 # Oracle SDK
-npm install @kamino-finance/scope-sdk
+npm install @kamino-finance/scope-sdk --legacy-peer-deps
 
 # Required peer dependencies
-npm install @solana/web3.js @coral-xyz/anchor decimal.js
+npm install @solana/web3.js @coral-xyz/anchor decimal.js --legacy-peer-deps
 ```
 
 ### Environment Setup

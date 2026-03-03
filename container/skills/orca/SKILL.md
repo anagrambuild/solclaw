@@ -8,6 +8,46 @@ description: Complete guide for Orca - Solana's leading concentrated liquidity A
 
 Orca is the most trusted DEX on Solana and Eclipse, built on a concentrated liquidity automated market maker (CLMM) called Whirlpools. This guide covers the Whirlpools SDK for building trading, liquidity provision, and pool management applications.
 
+## CRITICAL: Use SDK Functions Directly — Do NOT Build Transactions Manually
+
+The Orca SDK uses `@solana/kit` (Web3.js **v2**). Its functions handle building, signing, sending, and confirming transactions **internally**. Do NOT extract instructions and build v1 `Transaction` objects — they are incompatible.
+
+**For swaps — use `swap()` directly:**
+```typescript
+// CORRECT: swap() does everything and returns the tx signature
+const sig = await swap(rpc, { inputAmount, mint: inputMint }, poolAddress, slippage, wallet);
+```
+```typescript
+// WRONG: Do NOT extract swapInstructions() and build a v1 Transaction
+const { instructions } = await swapInstructions(...);
+const tx = new Transaction().add(...instructions); // ❌ v2 instructions are NOT v1-compatible
+```
+
+**For liquidity — use `openPosition()` / `openFullRangePosition()` directly:**
+```typescript
+// CORRECT: returns tx signature directly
+const sig = await openPosition(rpc, poolAddress, param, lowerPrice, upperPrice, slippage, wallet);
+```
+```typescript
+// Also CORRECT: use the callback from *Instructions() variant
+const { quote, positionMint, callback } = await openPositionInstructions(rpc, poolAddress, param, lowerPrice, upperPrice, slippage, wallet);
+const sig = await callback(); // callback sends the tx using v2 internally
+```
+
+**For all other operations** (`increaseLiquidity`, `decreaseLiquidity`, `harvestPosition`, `closePosition`):
+- Use the direct function (e.g., `closePosition(...)`) which returns a signature, OR
+- Use the `*Instructions()` variant and call its `callback()` to send — never manually build a Transaction
+
+**RPC setup — use `@solana/kit`, NOT `@solana/web3.js`:**
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+const rpc = createSolanaRpc(config.preferences.rpcUrl); // from solana-config.json
+await setRpc(config.preferences.rpcUrl);
+```
+Do NOT use `new Connection()` from `@solana/web3.js` — it is incompatible with the Orca SDK.
+
+**Use the template:** `templates/setup.ts` has a ready-to-use `OrcaClient` class that handles all of this correctly.
+
 ## Overview
 
 Orca Whirlpools provides:

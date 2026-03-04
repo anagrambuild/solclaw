@@ -10,7 +10,7 @@ import { SkillState } from './types.js';
 // Directories/files to always exclude from base snapshot
 const BASE_EXCLUDES = [
   'node_modules',
-  '.nanoclaw',
+  '.solclaw',
   '.git',
   'dist',
   'data',

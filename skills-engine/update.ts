@@ -229,7 +229,7 @@ export async function applyUpdate(newCorePath: string): Promise<UpdateResult> {
     }
 
     // --- Record path remaps from update metadata ---
-    const remapFile = path.join(newCorePath, '.nanoclaw-meta', 'path_remap.yaml');
+    const remapFile = path.join(newCorePath, '.solclaw-meta', 'path_remap.yaml');
     if (fs.existsSync(remapFile)) {
       const remap = parseYaml(fs.readFileSync(remapFile, 'utf-8')) as Record<string, string>;
       if (remap && typeof remap === 'object') {

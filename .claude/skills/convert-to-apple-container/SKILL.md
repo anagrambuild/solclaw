@@ -5,7 +5,7 @@ description: Switch from Docker to Apple Container for macOS-native container is
 
 # Convert to Apple Container
 
-This skill switches NanoClaw's container runtime from Docker to Apple Container (macOS-only). It uses the skills engine for deterministic code changes, then walks through verification.
+This skill switches SolClaw's container runtime from Docker to Apple Container (macOS-only). It uses the skills engine for deterministic code changes, then walks through verification.
 
 **What this changes:**
 - Container runtime binary: `docker` → `container`
@@ -39,7 +39,7 @@ Apple Container requires macOS. It does not work on Linux.
 
 ### Check if already applied
 
-Read `.nanoclaw/state.yaml`. If `convert-to-apple-container` is in `applied_skills`, skip to Phase 3 (Verify). The code changes are already in place.
+Read `.solclaw/state.yaml`. If `convert-to-apple-container` is in `applied_skills`, skip to Phase 3 (Verify). The code changes are already in place.
 
 ### Check current runtime
 
@@ -55,7 +55,7 @@ Run the skills engine to apply this skill's code package. The package files are 
 
 ### Initialize skills system (if needed)
 
-If `.nanoclaw/` directory doesn't exist yet:
+If `.solclaw/` directory doesn't exist yet:
 
 ```bash
 npx tsx scripts/apply-skill.ts --init
@@ -73,7 +73,7 @@ This deterministically:
 - Replaces `src/container-runtime.ts` with the Apple Container implementation
 - Replaces `src/container-runtime.test.ts` with Apple Container-specific tests
 - Updates `container/build.sh` to default to `container` runtime
-- Records the application in `.nanoclaw/state.yaml`
+- Records the application in `.solclaw/state.yaml`
 
 If the apply reports merge conflicts, read the intent files:
 - `modify/src/container-runtime.ts.intent.md` — what changed and invariants
@@ -138,7 +138,7 @@ Expected: Both operations succeed.
 
 ```bash
 npm run build
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+launchctl kickstart -k gui/$(id -u)/com.solclaw
 ```
 
 Send a message via WhatsApp and verify the agent responds.

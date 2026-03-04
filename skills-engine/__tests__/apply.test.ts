@@ -69,7 +69,7 @@ describe('apply', () => {
     fs.writeFileSync(existingFile, 'original content');
 
     // Set up base for the modified file
-    const baseDir = path.join(tmpDir, '.nanoclaw', 'base', 'src');
+    const baseDir = path.join(tmpDir, '.solclaw', 'base', 'src');
     fs.mkdirSync(baseDir, { recursive: true });
     fs.writeFileSync(path.join(baseDir, 'existing.ts'), 'original content');
 

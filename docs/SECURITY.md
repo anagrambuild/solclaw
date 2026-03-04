@@ -1,4 +1,4 @@
-# NanoClaw Security Model
+# SolClaw Security Model
 
 ## Trust Model
 

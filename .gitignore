@@ -34,7 +34,7 @@ config/solana-config.json
 .vscode/
 
 # Skills system (local per-installation state)
-.nanoclaw/
+.solclaw/
 
 agents-sdk-docs
 .claude/

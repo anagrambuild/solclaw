@@ -201,7 +201,7 @@ npx tsx setup/index.ts --step solana -- --signing standard --key-source generate
 ## 11. Start Service
 
 If service already running: unload first.
-- macOS: `launchctl unload ~/Library/LaunchAgents/com.solclaw.plist` (or `com.nanoclaw.plist` if using original NanoClaw)
+- macOS: `launchctl unload ~/Library/LaunchAgents/com.solclaw.plist` (or the upstream project's original launchd plist if applicable)
 - Linux: `systemctl --user stop solclaw` (or `systemctl stop solclaw` if root)
 
 Run `npx tsx setup/index.ts --step service` and parse the status block.
@@ -224,7 +224,7 @@ Replace `USERNAME` with the actual username (from `whoami`). Run the two `sudo` 
 
 **If SERVICE_LOADED=false:**
 - Read `logs/setup.log` for the error.
-- macOS: check `launchctl list | grep nanoclaw`. If PID=`-` and status non-zero, read `logs/nanoclaw.error.log`.
+- macOS: check `launchctl list | grep solclaw`. If PID=`-` and status non-zero, read `logs/solclaw.error.log`.
 - Linux: check `systemctl --user status nanoclaw`.
 - Re-run the service step after fixing.
 
@@ -256,12 +256,12 @@ Tell user to test: send a message in their registered chat. Show: `tail -f logs/
 
 ## Troubleshooting
 
-**Service not starting:** Check `logs/nanoclaw.error.log`. Common: wrong Node path (re-run step 10), missing `.env` (step 4), missing auth (step 5).
+**Service not starting:** Check `logs/solclaw.error.log`. Common: wrong Node path (re-run step 10), missing `.env` (step 4), missing auth (step 5).
 
 **Container agent fails ("Claude Code process exited with code 1"):** Ensure the container runtime is running — `open -a Docker` (macOS Docker), `container system start` (Apple Container), or `sudo systemctl start docker` (Linux). Check container logs in `groups/main/logs/container-*.log`.
 
-**No response to messages:** Check trigger pattern. Main channel doesn't need prefix. Check DB: `npx tsx setup/index.ts --step verify`. Check `logs/nanoclaw.log`.
+**No response to messages:** Check trigger pattern. Main channel doesn't need prefix. Check DB: `npx tsx setup/index.ts --step verify`. Check `logs/solclaw.log`.
 
-**WhatsApp disconnected:** `npm run auth` then rebuild and restart: `npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw` (macOS) or `systemctl --user restart nanoclaw` (Linux).
+**WhatsApp disconnected:** `npm run auth` then rebuild and restart: `npm run build && launchctl kickstart -k gui/$(id -u)/com.solclaw` (macOS) or `systemctl --user restart solclaw` (Linux).
 
-**Unload service:** macOS: `launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist` | Linux: `systemctl --user stop nanoclaw`
+**Unload service:** macOS: `launchctl unload ~/Library/LaunchAgents/com.solclaw.plist` | Linux: `systemctl --user stop solclaw`

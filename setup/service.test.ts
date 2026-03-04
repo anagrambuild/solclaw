@@ -49,7 +49,7 @@ function generateSystemdUnit(
   isSystem: boolean,
 ): string {
   return `[Unit]
-Description=NanoClaw Personal Assistant
+Description=SolClaw Personal Assistant
 After=network.target
 
 [Service]
@@ -69,22 +69,22 @@ WantedBy=${isSystem ? 'multi-user.target' : 'default.target'}`;
 
 describe('plist generation', () => {
   it('contains the correct label', () => {
-    const plist = generatePlist('/usr/local/bin/node', '/home/user/nanoclaw', '/home/user');
+    const plist = generatePlist('/usr/local/bin/node', '/home/user/solclaw', '/home/user');
     expect(plist).toContain('<string>com.solclaw</string>');
   });
 
   it('uses the correct node path', () => {
-    const plist = generatePlist('/opt/node/bin/node', '/home/user/nanoclaw', '/home/user');
+    const plist = generatePlist('/opt/node/bin/node', '/home/user/solclaw', '/home/user');
     expect(plist).toContain('<string>/opt/node/bin/node</string>');
   });
 
   it('points to dist/index.js', () => {
-    const plist = generatePlist('/usr/local/bin/node', '/home/user/nanoclaw', '/home/user');
-    expect(plist).toContain('/home/user/nanoclaw/dist/index.js');
+    const plist = generatePlist('/usr/local/bin/node', '/home/user/solclaw', '/home/user');
+    expect(plist).toContain('/home/user/solclaw/dist/index.js');
   });
 
   it('sets log paths', () => {
-    const plist = generatePlist('/usr/local/bin/node', '/home/user/nanoclaw', '/home/user');
+    const plist = generatePlist('/usr/local/bin/node', '/home/user/solclaw', '/home/user');
     expect(plist).toContain('solclaw.log');
     expect(plist).toContain('solclaw.error.log');
   });
@@ -92,30 +92,30 @@ describe('plist generation', () => {
 
 describe('systemd unit generation', () => {
   it('user unit uses default.target', () => {
-    const unit = generateSystemdUnit('/usr/bin/node', '/home/user/nanoclaw', '/home/user', false);
+    const unit = generateSystemdUnit('/usr/bin/node', '/home/user/solclaw', '/home/user', false);
     expect(unit).toContain('WantedBy=default.target');
   });
 
   it('system unit uses multi-user.target', () => {
-    const unit = generateSystemdUnit('/usr/bin/node', '/home/user/nanoclaw', '/home/user', true);
+    const unit = generateSystemdUnit('/usr/bin/node', '/home/user/solclaw', '/home/user', true);
     expect(unit).toContain('WantedBy=multi-user.target');
   });
 
   it('contains restart policy', () => {
-    const unit = generateSystemdUnit('/usr/bin/node', '/home/user/nanoclaw', '/home/user', false);
+    const unit = generateSystemdUnit('/usr/bin/node', '/home/user/solclaw', '/home/user', false);
     expect(unit).toContain('Restart=always');
     expect(unit).toContain('RestartSec=5');
   });
 
   it('sets correct ExecStart', () => {
-    const unit = generateSystemdUnit('/usr/bin/node', '/srv/nanoclaw', '/home/user', false);
-    expect(unit).toContain('ExecStart=/usr/bin/node /srv/nanoclaw/dist/index.js');
+    const unit = generateSystemdUnit('/usr/bin/node', '/srv/solclaw', '/home/user', false);
+    expect(unit).toContain('ExecStart=/usr/bin/node /srv/solclaw/dist/index.js');
   });
 });
 
 describe('WSL nohup fallback', () => {
   it('generates a valid wrapper script', () => {
-    const projectRoot = '/home/user/nanoclaw';
+    const projectRoot = '/home/user/solclaw';
     const nodePath = '/usr/bin/node';
     const pidFile = path.join(projectRoot, 'solclaw.pid');
 

@@ -1,17 +1,17 @@
 ---
 name: add-gmail
-description: Add Gmail integration to NanoClaw. Can be configured as a tool (agent reads/sends emails when triggered from WhatsApp) or as a full channel (emails can trigger the agent, schedule tasks, and receive replies). Guides through GCP OAuth setup and implements the integration.
+description: Add Gmail integration to SolClaw. Can be configured as a tool (agent reads/sends emails when triggered from WhatsApp) or as a full channel (emails can trigger the agent, schedule tasks, and receive replies). Guides through GCP OAuth setup and implements the integration.
 ---
 
 # Add Gmail Integration
 
-This skill adds Gmail support to NanoClaw — either as a tool (read, send, search, draft) or as a full channel that polls the inbox.
+This skill adds Gmail support to SolClaw — either as a tool (read, send, search, draft) or as a full channel that polls the inbox.
 
 ## Phase 1: Pre-flight
 
 ### Check if already applied
 
-Read `.nanoclaw/state.yaml`. If `gmail` is in `applied_skills`, skip to Phase 3 (Setup). The code changes are already in place.
+Read `.solclaw/state.yaml`. If `gmail` is in `applied_skills`, skip to Phase 3 (Setup). The code changes are already in place.
 
 ### Ask the user
 
@@ -26,7 +26,7 @@ AskUserQuestion: Should incoming emails be able to trigger the agent?
 
 ### Initialize skills system (if needed)
 
-If `.nanoclaw/` directory doesn't exist yet:
+If `.solclaw/` directory doesn't exist yet:
 
 ```bash
 npx tsx scripts/apply-skill.ts --init
@@ -46,7 +46,7 @@ Apply the changes described in `modify/container/agent-runner/src/index.ts.inten
 
 #### 3. Record in state
 
-Add `gmail` to `.nanoclaw/state.yaml` under `applied_skills` with `mode: tool-only`.
+Add `gmail` to `.solclaw/state.yaml` under `applied_skills` with `mode: tool-only`.
 
 #### 4. Validate
 
@@ -73,7 +73,7 @@ This deterministically:
 - Three-way merges Gmail MCP server into `container/agent-runner/src/index.ts` (@gongrzhe/server-gmail-autoauth-mcp)
 - Three-way merges Gmail JID tests into `src/routing.test.ts`
 - Installs the `googleapis` npm dependency
-- Records the application in `.nanoclaw/state.yaml`
+- Records the application in `.solclaw/state.yaml`
 
 If the apply reports merge conflicts, read the intent files:
 
@@ -120,7 +120,7 @@ Tell the user:
 > 2. Go to **APIs & Services > Library**, search "Gmail API", click **Enable**
 > 3. Go to **APIs & Services > Credentials**, click **+ CREATE CREDENTIALS > OAuth client ID**
 >    - If prompted for consent screen: choose "External", fill in app name and email, save
->    - Application type: **Desktop app**, name: anything (e.g., "NanoClaw Gmail")
+>    - Application type: **Desktop app**, name: anything (e.g., "SolClaw Gmail")
 > 4. Click **DOWNLOAD JSON** and save as `gcp-oauth.keys.json`
 >
 > Where did you save the file? (Give me the full path, or paste the file contents here)
@@ -166,7 +166,7 @@ Then compile and restart:
 
 ```bash
 npm run build
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw  # macOS
+launchctl kickstart -k gui/$(id -u)/com.solclaw  # macOS
 # Linux: systemctl --user restart nanoclaw
 ```
 
@@ -182,14 +182,14 @@ Tell the user:
 
 ### Test channel mode (Channel mode only)
 
-Tell the user to send themselves a test email. The agent should pick it up within a minute. Monitor: `tail -f logs/nanoclaw.log | grep -iE "(gmail|email)"`.
+Tell the user to send themselves a test email. The agent should pick it up within a minute. Monitor: `tail -f logs/solclaw.log | grep -iE "(gmail|email)"`.
 
 Once verified, offer filter customization via `AskUserQuestion` — by default, only emails in the Primary inbox trigger the agent (Promotions, Social, Updates, and Forums are excluded). The user can keep this default or narrow further by sender, label, or keywords. No code changes needed for filters.
 
 ### Check logs if needed
 
 ```bash
-tail -f logs/nanoclaw.log
+tail -f logs/solclaw.log
 ```
 
 ## Troubleshooting
@@ -227,9 +227,9 @@ npx -y @gongrzhe/server-gmail-autoauth-mcp
 
 1. Remove `~/.gmail-mcp` mount from `src/container-runner.ts`
 2. Remove `gmail` MCP server and `mcp__gmail__*` from `container/agent-runner/src/index.ts`
-3. Remove `gmail` from `.nanoclaw/state.yaml`
+3. Remove `gmail` from `.solclaw/state.yaml`
 4. Clear stale agent-runner copies: `rm -r data/sessions/*/agent-runner-src 2>/dev/null || true`
-5. Rebuild: `cd container && ./build.sh && cd .. && npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw` (macOS) or `systemctl --user restart nanoclaw` (Linux)
+5. Rebuild: `cd container && ./build.sh && cd .. && npm run build && launchctl kickstart -k gui/$(id -u)/com.solclaw` (macOS) or `systemctl --user restart solclaw` (Linux)
 
 ### Channel mode
 
@@ -239,6 +239,6 @@ npx -y @gongrzhe/server-gmail-autoauth-mcp
 4. Remove `gmail` MCP server and `mcp__gmail__*` from `container/agent-runner/src/index.ts`
 5. Remove Gmail JID tests from `src/routing.test.ts`
 6. Uninstall: `npm uninstall googleapis`
-7. Remove `gmail` from `.nanoclaw/state.yaml`
+7. Remove `gmail` from `.solclaw/state.yaml`
 8. Clear stale agent-runner copies: `rm -r data/sessions/*/agent-runner-src 2>/dev/null || true`
-9. Rebuild: `cd container && ./build.sh && cd .. && npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw` (macOS) or `systemctl --user restart nanoclaw` (Linux)
+9. Rebuild: `cd container && ./build.sh && cd .. && npm run build && launchctl kickstart -k gui/$(id -u)/com.solclaw` (macOS) or `systemctl --user restart solclaw` (Linux)

@@ -47,12 +47,11 @@ COPY agent-runner/ ./
 # Build TypeScript
 RUN npm run build
 
-# Enable ESM interop and tsx module resolution globally (AFTER all npm installs):
-# --experimental-require-module: lets require() load ESM packages
-# --import tsx/esm/register: registers tsx's resolver for ALL node processes,
-#   fixing directory imports (e.g. '@coral-xyz/anchor/dist/cjs/utils/bytes' → .../bytes/index.js)
-#   that Meteora DLMM, Orca legacy, and other Anchor-based SDKs rely on
-ENV NODE_OPTIONS="--experimental-require-module --import tsx/esm/register"
+# Symlink global tsx into local node_modules so the entrypoint can resolve it from /app/
+RUN ln -s $(npm root -g)/tsx node_modules/tsx
+
+# ESM interop for all node processes (safe, no tsx dependency)
+ENV NODE_OPTIONS="--experimental-require-module"
 
 # Create workspace directories
 RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input
@@ -60,7 +59,7 @@ RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/
 # Create entrypoint script
 # Secrets are passed via stdin JSON — temp file is deleted immediately after Node reads it
 # Follow-up messages arrive via IPC files in /workspace/ipc/input/
-RUN printf '#!/bin/bash\nset -e\ncd /app && npx tsc --outDir /tmp/dist 2>&1 >&2\nln -s /app/node_modules /tmp/dist/node_modules\nchmod -R a-w /tmp/dist\ncat > /tmp/input.json\nnode /tmp/dist/index.js < /tmp/input.json\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+RUN printf '#!/bin/bash\nset -e\ncd /app && npx tsc --outDir /tmp/dist 2>&1 >&2\nln -s /app/node_modules /tmp/dist/node_modules\nchmod -R a-w /tmp/dist\ncat > /tmp/input.json\nnode --import tsx /tmp/dist/index.js < /tmp/input.json\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Set ownership to node user (non-root) for writable directories
 RUN chown -R node:node /workspace && chmod 777 /home/node

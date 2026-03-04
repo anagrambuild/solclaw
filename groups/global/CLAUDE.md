@@ -29,7 +29,9 @@ Some SDKs (Orca Whirlpools, Meteora DLMM) use `@solana/kit` (Web3.js **v2**) whi
 - v1 SDK functions expect `Connection` from `new Connection(url)` — do NOT pass a v2 `rpc` object
 - If a skill has a template (e.g. `templates/setup.ts`), USE IT — it handles the correct RPC version
 - When using Orca: use the `OrcaClient` class from `templates/setup.ts`, call `setRpc(url)` — never `new Connection()`
-- **Orca swap execution**: Use the SDK's `swap()` function directly — it builds, signs, sends, and returns the tx signature ALL internally using v2. Do NOT call `swapInstructions()` and try to build a v1 `Transaction` manually. Example: `const sig = await swap(rpc, { inputAmount, mint }, poolAddress, slippage, wallet)` — done, no manual transaction building needed.
+- **Orca v7 has TWO API levels**: Wrapper functions (`swap`, `openConcentratedPosition`, etc.) use global config from `setRpc()`/`setPayerFromBytes()` — do NOT pass `rpc` or `wallet`. Instructions functions (`swapInstructions`, `openPositionInstructions`, etc.) take `rpc` and `signer` explicitly. **Passing rpc/wallet to wrapper functions shifts all params and causes "invalid type: map, expected a string" RPC errors.**
+- **Orca swap example**: `await setRpc(url); await setPayerFromBytes(key); const result = await swap({ inputAmount, mint }, poolAddress, slippage); const txId = await result.callback();` — NO rpc, NO wallet args to `swap()`!
+- **Kamino klend-sdk v7+**: Uses `@solana/kit` v2 internally. Must pass `createSolanaRpc(url)` and `address("...")` to `KaminoMarket.load()` — NOT `new Connection()` or `new PublicKey()`. Passing v1 `PublicKey` causes "invalid type: map, expected a string" because it serializes as `{"_bn": {...}}`.
 - When using Meteora: check if it uses `@solana/kit` — if so, use `createSolanaRpc(url)`
 - The RPC URL is always a plain string (`config.preferences.rpcUrl`) — both v1 and v2 accept strings
 

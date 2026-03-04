@@ -8,45 +8,94 @@ description: Complete guide for Orca - Solana's leading concentrated liquidity A
 
 Orca is the most trusted DEX on Solana and Eclipse, built on a concentrated liquidity automated market maker (CLMM) called Whirlpools. This guide covers the Whirlpools SDK for building trading, liquidity provision, and pool management applications.
 
-## CRITICAL: Use SDK Functions Directly — Do NOT Build Transactions Manually
+## CRITICAL: Two API Levels — Wrapper Functions vs Instructions Functions
 
-The Orca SDK uses `@solana/kit` (Web3.js **v2**). Its functions handle building, signing, sending, and confirming transactions **internally**. Do NOT extract instructions and build v1 `Transaction` objects — they are incompatible.
+The Orca SDK v7 has **two API levels**. Using the wrong function signatures is the #1 cause of errors.
 
-**For swaps — use `swap()` directly:**
-```typescript
-// CORRECT: swap() does everything and returns the tx signature
-const sig = await swap(rpc, { inputAmount, mint: inputMint }, poolAddress, slippage, wallet);
-```
-```typescript
-// WRONG: Do NOT extract swapInstructions() and build a v1 Transaction
-const { instructions } = await swapInstructions(...);
-const tx = new Transaction().add(...instructions); // ❌ v2 instructions are NOT v1-compatible
-```
+### Wrapper Functions (swap, openConcentratedPosition, etc.)
+These use **global config** set by `setRpc()` and `setPayerFromBytes()`. They do **NOT** take `rpc` or `wallet` arguments. They return `{ ..., callback }` — call `callback()` to send the transaction.
 
-**For liquidity — use `openPosition()` / `openFullRangePosition()` directly:**
 ```typescript
-// CORRECT: returns tx signature directly
-const sig = await openPosition(rpc, poolAddress, param, lowerPrice, upperPrice, slippage, wallet);
-```
-```typescript
-// Also CORRECT: use the callback from *Instructions() variant
-const { quote, positionMint, callback } = await openPositionInstructions(rpc, poolAddress, param, lowerPrice, upperPrice, slippage, wallet);
-const sig = await callback(); // callback sends the tx using v2 internally
+// Setup (once)
+await setWhirlpoolsConfig("solanaMainnet");
+await setRpc(config.preferences.rpcUrl);
+const wallet = await setPayerFromBytes(keypairBytes);
+
+// swap() — NO rpc, NO wallet args!
+const result = await swap(
+  { inputAmount: 10_000_000n, mint: SOL_MINT },  // input param
+  poolAddress,                                      // pool
+  100                                               // slippage bps (1%)
+);
+console.log("Quote:", result.quote.tokenEstOut);
+const txId = await result.callback();  // sends the transaction
 ```
 
-**For all other operations** (`increaseLiquidity`, `decreaseLiquidity`, `harvestPosition`, `closePosition`):
-- Use the direct function (e.g., `closePosition(...)`) which returns a signature, OR
-- Use the `*Instructions()` variant and call its `callback()` to send — never manually build a Transaction
+```typescript
+// ❌ WRONG — passing rpc and wallet shifts all params and causes RPC errors!
+const result = await swap(rpc, { inputAmount, mint }, poolAddress, slippage, wallet);
+```
 
-**RPC setup — use `@solana/kit`, NOT `@solana/web3.js`:**
+### Instructions Functions (swapInstructions, openPositionInstructions, etc.)
+These take `rpc` and `signer/funder` explicitly. Use these when you need the quote/instructions without sending.
+
 ```typescript
 import { createSolanaRpc } from "@solana/kit";
-const rpc = createSolanaRpc(config.preferences.rpcUrl); // from solana-config.json
+const rpc = createSolanaRpc(config.preferences.rpcUrl);
+
+const { instructions, quote } = await swapInstructions(
+  rpc,                                                // explicit rpc
+  { inputAmount: 10_000_000n, mint: SOL_MINT },       // input param
+  poolAddress,                                         // pool
+  100,                                                 // slippage bps
+  wallet                                               // explicit signer
+);
+```
+
+### Complete Function Reference
+
+**Wrapper functions** (use global config, return `{ ..., callback }`):
+| Function | Arguments (NO rpc, NO wallet) |
+|----------|-------------------------------|
+| `swap` | `(input, poolAddress, slippage?)` |
+| `openConcentratedPosition` | `(poolAddress, param, lowerPrice, upperPrice, slippage?, withMetadata?)` |
+| `openFullRangePosition` | `(poolAddress, param, slippage?, withMetadata?)` |
+| `increasePosLiquidity` | `(positionMint, param, slippage?)` |
+| `decreaseLiquidity` | `(positionMint, param, slippage?)` |
+| `harvestPosition` | `(positionMint)` |
+| `closePosition` | `(positionMint, slippage?)` |
+| `createSplashPool` | `(tokenMintA, tokenMintB, initialPrice?)` |
+| `createConcentratedLiquidityPool` | `(tokenMintA, tokenMintB, tickSpacing, initialPrice?)` |
+
+**Instructions functions** (take rpc + signer explicitly):
+| Function | First arg | Last arg |
+|----------|-----------|----------|
+| `swapInstructions` | `rpc` | `signer` |
+| `openPositionInstructions` | `rpc` | `funder` |
+| `openFullRangePositionInstructions` | `rpc` | `funder` |
+| `increaseLiquidityInstructions` | `rpc` | `authority` |
+| `decreaseLiquidityInstructions` | `rpc` | `authority` |
+| `harvestPositionInstructions` | `rpc` | `authority` |
+| `closePositionInstructions` | `rpc` | `authority` |
+
+**Fetch functions** (take rpc explicitly, read-only):
+| Function | Arguments |
+|----------|-----------|
+| `fetchConcentratedLiquidityPool` | `(rpc, mintOne, mintTwo, tickSpacing)` |
+| `fetchSplashPool` | `(rpc, mintOne, mintTwo)` |
+| `fetchWhirlpoolsByTokenPair` | `(rpc, mintOne, mintTwo)` |
+| `fetchPositionsForOwner` | `(rpc, ownerAddress)` |
+| `fetchPositionsInWhirlpool` | `(rpc, whirlpoolAddress)` |
+
+### RPC setup
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+// For global config (wrapper functions):
 await setRpc(config.preferences.rpcUrl);
+// For explicit rpc (instructions/fetch functions):
+const rpc = createSolanaRpc(config.preferences.rpcUrl);
 ```
 Do NOT use `new Connection()` from `@solana/web3.js` — it is incompatible with the Orca SDK.
-
-**Use the template:** `templates/setup.ts` has a ready-to-use `OrcaClient` class that handles all of this correctly.
 
 ## Overview
 
@@ -144,28 +193,30 @@ console.log("Wallet:", wallet.publicKey.toString());
 ### Swap with New SDK
 
 ```typescript
-import { swap, swapInstructions, setWhirlpoolsConfig } from "@orca-so/whirlpools";
-import { address } from "@solana/kit";
+import { swap, swapInstructions, setWhirlpoolsConfig, setRpc, setPayerFromBytes } from "@orca-so/whirlpools";
+import { address, createSolanaRpc } from "@solana/kit";
 
 await setWhirlpoolsConfig("solanaMainnet");
+await setRpc(rpcUrl);
+const wallet = await setPayerFromBytes(keypairBytes);
 
 const poolAddress = address("POOL_ADDRESS_HERE");
 const inputMint = address("INPUT_TOKEN_MINT");
 const amount = 1_000_000n; // Amount in smallest units
 const slippageTolerance = 100; // 100 bps = 1%
 
-// Option 1: Use the simple swap function (builds and sends)
-const txId = await swap(
-  rpc,
+// Option 1: Wrapper function (uses global config — NO rpc, NO wallet)
+const result = await swap(
   { inputAmount: amount, mint: inputMint },
   poolAddress,
-  slippageTolerance,
-  wallet
+  slippageTolerance
 );
-
+console.log("Expected output:", result.quote.tokenEstOut);
+const txId = await result.callback(); // sends the transaction
 console.log("Swap transaction:", txId);
 
-// Option 2: Get instructions for custom transaction building
+// Option 2: Instructions function (explicit rpc + signer)
+const rpc = createSolanaRpc(rpcUrl);
 const { instructions, quote } = await swapInstructions(
   rpc,
   { inputAmount: amount, mint: inputMint },
@@ -173,25 +224,21 @@ const { instructions, quote } = await swapInstructions(
   slippageTolerance,
   wallet
 );
-
 console.log("Expected output:", quote.tokenEstOut);
 console.log("Minimum output:", quote.tokenMinOut);
-console.log("Price impact:", quote.priceImpact);
 ```
 
 ### Exact Output Swap
 
 ```typescript
-// Swap to get exact output amount
-const { instructions, quote } = await swapInstructions(
-  rpc,
+// Swap to get exact output amount (wrapper)
+const result = await swap(
   { outputAmount: 1_000_000n, mint: outputMint },
   poolAddress,
-  slippageTolerance,
-  wallet
+  slippageTolerance
 );
-
-console.log("Max input required:", quote.tokenMaxIn);
+console.log("Max input required:", result.quote.tokenMaxIn);
+const txId = await result.callback();
 ```
 
 ### Swap with Legacy SDK
@@ -237,48 +284,29 @@ console.log("Swap signature:", signature);
 ### Open Concentrated Liquidity Position
 
 ```typescript
-import { openPosition, openPositionInstructions } from "@orca-so/whirlpools";
-import { address } from "@solana/kit";
+import { openConcentratedPosition, openPositionInstructions } from "@orca-so/whirlpools";
+import { address, createSolanaRpc } from "@solana/kit";
 
 const poolAddress = address("POOL_ADDRESS");
 const lowerPrice = 0.001;  // Lower bound of price range
 const upperPrice = 100.0;  // Upper bound of price range
 const slippageTolerance = 100; // 1%
-
-// Specify liquidity by token amount
 const param = { tokenA: 1_000_000_000n }; // 1 token with 9 decimals
 
-// Option 1: Simple function that builds and sends
-const txId = await openPosition(
-  rpc,
-  poolAddress,
-  param,
-  lowerPrice,
-  upperPrice,
-  slippageTolerance,
-  wallet
+// Option 1: Wrapper (uses global config — NO rpc, NO wallet)
+const result = await openConcentratedPosition(
+  poolAddress, param, lowerPrice, upperPrice, slippageTolerance
 );
+const txId = await result.callback();
 
-// Option 2: Get instructions for custom transaction
-const {
-  instructions,
-  quote,
-  positionMint,
-  initializationCost
-} = await openPositionInstructions(
-  rpc,
-  poolAddress,
-  param,
-  lowerPrice,
-  upperPrice,
-  slippageTolerance,
-  wallet
-);
+// Option 2: Instructions function (explicit rpc + funder)
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, quote, positionMint, initializationCost } =
+  await openPositionInstructions(rpc, poolAddress, param, lowerPrice, upperPrice, slippageTolerance, true, wallet);
 
 console.log("Position mint:", positionMint);
 console.log("Token A required:", quote.tokenEstA);
 console.log("Token B required:", quote.tokenEstB);
-console.log("Initialization cost:", initializationCost);
 ```
 
 ### Open Full Range Position
@@ -290,46 +318,35 @@ const poolAddress = address("POOL_ADDRESS");
 const param = { tokenA: 1_000_000_000n };
 const slippageTolerance = 100;
 
-const {
-  instructions,
-  quote,
-  positionMint,
-  callback: sendTx
-} = await openFullRangePositionInstructions(
-  rpc,
-  poolAddress,
-  param,
-  slippageTolerance,
-  wallet
-);
+// Wrapper (NO rpc, NO wallet)
+const result = await openFullRangePosition(poolAddress, param, slippageTolerance);
+console.log("Position mint:", result.positionMint);
+const txId = await result.callback();
 
-console.log("Position mint:", positionMint);
-console.log("Token max B:", quote.tokenMaxB);
-
-// Send the transaction
-const txId = await sendTx();
-console.log("Transaction:", txId);
+// Or instructions variant
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, quote, positionMint, callback } =
+  await openFullRangePositionInstructions(rpc, poolAddress, param, slippageTolerance, true, wallet);
+const txId2 = await callback();
 ```
 
 ### Increase Position Liquidity
 
 ```typescript
-import { increaseLiquidity, increaseLiquidityInstructions } from "@orca-so/whirlpools";
+import { increasePosLiquidity, increaseLiquidityInstructions } from "@orca-so/whirlpools";
 
 const positionMint = address("POSITION_MINT");
 const param = { tokenA: 500_000_000n }; // Add 0.5 tokens
 const slippageTolerance = 100;
 
-const { instructions, quote } = await increaseLiquidityInstructions(
-  rpc,
-  positionMint,
-  param,
-  slippageTolerance,
-  wallet
-);
+// Wrapper (NO rpc, NO wallet)
+const result = await increasePosLiquidity(positionMint, param, slippageTolerance);
+const txId = await result.callback();
 
+// Or instructions variant
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, quote } = await increaseLiquidityInstructions(rpc, positionMint, param, slippageTolerance, wallet);
 console.log("Additional Token A:", quote.tokenEstA);
-console.log("Additional Token B:", quote.tokenEstB);
 ```
 
 ### Decrease Position Liquidity
@@ -341,41 +358,32 @@ const positionMint = address("POSITION_MINT");
 const param = { liquidity: 1000000n }; // Or use tokenA/tokenB
 const slippageTolerance = 100;
 
-const { instructions, quote } = await decreaseLiquidityInstructions(
-  rpc,
-  positionMint,
-  param,
-  slippageTolerance,
-  wallet
-);
+// Wrapper (NO rpc, NO wallet)
+const result = await decreaseLiquidity(positionMint, param, slippageTolerance);
+const txId = await result.callback();
 
+// Or instructions variant
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, quote } = await decreaseLiquidityInstructions(rpc, positionMint, param, slippageTolerance, wallet);
 console.log("Token A received:", quote.tokenEstA);
-console.log("Token B received:", quote.tokenEstB);
 ```
 
 ### Harvest Fees and Rewards
 
 ```typescript
-import { harvestPosition, harvestPositionInstructions, harvestAllPositionFees } from "@orca-so/whirlpools";
+import { harvestPosition, harvestPositionInstructions } from "@orca-so/whirlpools";
 
-// Harvest single position
 const positionMint = address("POSITION_MINT");
 
-const { instructions, feesQuote, rewardsQuote } = await harvestPositionInstructions(
-  rpc,
-  positionMint,
-  wallet
-);
+// Wrapper (NO rpc, NO wallet)
+const result = await harvestPosition(positionMint);
+const txId = await result.callback();
 
+// Or instructions variant
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, feesQuote, rewardsQuote } = await harvestPositionInstructions(rpc, positionMint, wallet);
 console.log("Fee Token A:", feesQuote.feeOwedA);
 console.log("Fee Token B:", feesQuote.feeOwedB);
-console.log("Rewards:", rewardsQuote);
-
-// Harvest all positions at once
-const { instructions: harvestAllIx, fees, rewards } = await harvestAllPositionFees(
-  rpc,
-  wallet.address
-);
 ```
 
 ### Close Position
@@ -386,16 +394,14 @@ import { closePosition, closePositionInstructions } from "@orca-so/whirlpools";
 const positionMint = address("POSITION_MINT");
 const slippageTolerance = 100;
 
-const { instructions, quote, feesQuote } = await closePositionInstructions(
-  rpc,
-  positionMint,
-  slippageTolerance,
-  wallet
-);
+// Wrapper (NO rpc, NO wallet)
+const result = await closePosition(positionMint, slippageTolerance);
+const txId = await result.callback();
 
+// Or instructions variant
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, quote, feesQuote } = await closePositionInstructions(rpc, positionMint, slippageTolerance, wallet);
 console.log("Token A returned:", quote.tokenEstA);
-console.log("Token B returned:", quote.tokenEstB);
-console.log("Fees collected:", feesQuote);
 ```
 
 ---
@@ -406,26 +412,21 @@ console.log("Fees collected:", feesQuote);
 
 ```typescript
 import { createSplashPool, createSplashPoolInstructions } from "@orca-so/whirlpools";
-import { address } from "@solana/kit";
+import { address, createSolanaRpc } from "@solana/kit";
 
 const tokenMintA = address("TOKEN_A_MINT");
 const tokenMintB = address("TOKEN_B_MINT");
-const initialPrice = 1.5; // Price of token B in terms of token A
+const initialPrice = 1.5;
 
-const {
-  instructions,
-  poolAddress,
-  initializationCost
-} = await createSplashPoolInstructions(
-  rpc,
-  tokenMintA,
-  tokenMintB,
-  initialPrice,
-  wallet
-);
+// Wrapper (NO rpc, NO wallet)
+const result = await createSplashPool(tokenMintA, tokenMintB, initialPrice);
+console.log("Pool address:", result.poolAddress);
+const txId = await result.callback();
 
-console.log("Pool address:", poolAddress);
-console.log("Initialization cost:", initializationCost, "lamports");
+// Or instructions variant
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, poolAddress, initializationCost } =
+  await createSplashPoolInstructions(rpc, tokenMintA, tokenMintB, initialPrice, wallet);
 ```
 
 ### Create Concentrated Liquidity Pool
@@ -438,20 +439,14 @@ const tokenMintB = address("TOKEN_B_MINT");
 const tickSpacing = 64; // Common values: 1, 8, 64, 128
 const initialPrice = 1.5;
 
-const {
-  instructions,
-  poolAddress,
-  initializationCost
-} = await createConcentratedLiquidityPoolInstructions(
-  rpc,
-  tokenMintA,
-  tokenMintB,
-  tickSpacing,
-  initialPrice,
-  wallet
-);
+// Wrapper (NO rpc, NO wallet)
+const result = await createConcentratedLiquidityPool(tokenMintA, tokenMintB, tickSpacing, initialPrice);
+const txId = await result.callback();
 
-console.log("Pool address:", poolAddress);
+// Or instructions variant
+const rpc = createSolanaRpc(rpcUrl);
+const { instructions, poolAddress } =
+  await createConcentratedLiquidityPoolInstructions(rpc, tokenMintA, tokenMintB, tickSpacing, initialPrice, wallet);
 ```
 
 ### Fetch Pool Data
@@ -613,7 +608,8 @@ Tick spacing determines the granularity of price ranges:
 
 ```typescript
 try {
-  const txId = await swap(rpc, swapParams, poolAddress, slippage, wallet);
+  const result = await swap(swapParams, poolAddress, slippage);
+  const txId = await result.callback();
 } catch (error) {
   if (error.message.includes("SlippageExceeded")) {
     console.error("Slippage tolerance exceeded, try increasing slippage");

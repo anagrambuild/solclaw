@@ -17,6 +17,47 @@ Kamino Finance provides:
 - **Vaults**: Yield-generating vault strategies
 - **Obligation Orders**: Automated LTV-based and price-based order execution
 
+## CRITICAL: klend-sdk v7+ Requires @solana/kit v2 RPC and Addresses
+
+The Kamino klend-sdk v7+ uses `@solana/kit` (Web3.js v2) internally. You MUST use:
+- **v2 RPC**: `createSolanaRpc(url)` from `@solana/kit` — NOT `new Connection(url)` from `@solana/web3.js`
+- **v2 addresses**: `address("...")` from `@solana/kit` — NOT `new PublicKey("...")` from `@solana/web3.js`
+
+Passing v1 `PublicKey` objects causes `"invalid type: map, expected a string"` RPC errors because the v1 `PublicKey` object gets serialized as `{"_bn": {...}}` instead of a base58 string.
+
+```typescript
+// ✅ CORRECT — ALL v2 types
+import { createSolanaRpc, address, createKeyPairSignerFromBytes } from "@solana/kit";
+import bs58 from "bs58";
+
+const rpc = createSolanaRpc(config.preferences.rpcUrl);
+const signer = await createKeyPairSignerFromBytes(bs58.decode(config.wallet.privateKey));
+const market = await KaminoMarket.load(rpc, address("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF"));
+
+// Action builders also need v2 types:
+const action = await KaminoAction.buildDepositTxns(
+  market,
+  "1000000",                                              // amount as string
+  address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // mint as v2 address (NOT PublicKey)
+  signer,                                                    // v2 KeyPairSigner (NOT Keypair.publicKey)
+  new VanillaObligation(PROGRAM_ID)
+);
+```
+
+```typescript
+// ❌ WRONG — v1 types cause failures everywhere
+import { Connection, PublicKey, Keypair } from "@solana/web3.js";
+const connection = new Connection(url);                                    // ❌ → "send is not a function"
+const market = await KaminoMarket.load(connection, new PublicKey("7u3...")); // ❌ → "invalid type: map"
+await KaminoAction.buildDepositTxns(market, "1000000", new PublicKey("EPj..."), keypair.publicKey, ...); // ❌ → "Reserve not found" + "owner.address undefined"
+```
+
+**Key rules for Kamino v7:**
+- `KaminoMarket.load()` → v2 `rpc` + v2 `address()`
+- `KaminoAction.build*Txns()` → `mint` must be string or `address()` (NOT `PublicKey`), `owner` must be v2 `KeyPairSigner` (has `.address` property)
+- `getReserveByMint()` → works with string or `address()`, NOT `PublicKey`
+- `getReserveBySymbol()` → works with string (e.g., `"USDC"`)
+
 ## Quick Start
 
 ### Installation
@@ -33,8 +74,8 @@ npm install @kamino-finance/kliquidity-sdk --legacy-peer-deps
 # Oracle SDK
 npm install @kamino-finance/scope-sdk --legacy-peer-deps
 
-# Required peer dependencies
-npm install @solana/web3.js @coral-xyz/anchor decimal.js --legacy-peer-deps
+# Required peer dependencies (install @solana/kit for v2 RPC)
+npm install @solana/web3.js @solana/kit @coral-xyz/anchor decimal.js --legacy-peer-deps
 ```
 
 ### Environment Setup
@@ -63,15 +104,16 @@ The lending SDK enables interaction with Kamino's lending markets for deposits, 
 
 ```typescript
 import { KaminoMarket } from "@kamino-finance/klend-sdk";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { createSolanaRpc, address } from "@solana/kit";
 
-const connection = new Connection("https://api.mainnet-beta.solana.com");
+// Use v2 RPC — NOT new Connection()
+const rpc = createSolanaRpc(config.preferences.rpcUrl);
 
-// Main lending market address
-const MAIN_MARKET = new PublicKey("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF");
+// Main lending market address — use address(), NOT new PublicKey()
+const MAIN_MARKET = address("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF");
 
 // Load market with basic data
-const market = await KaminoMarket.load(connection, MAIN_MARKET);
+const market = await KaminoMarket.load(rpc, MAIN_MARKET);
 
 // Load reserves for detailed data
 await market.loadReserves();

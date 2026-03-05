@@ -42,7 +42,7 @@ async function runMatrixEntry(
       'data',
       'store',
       'logs',
-      '.nanoclaw',
+      '.solclaw',
     ]);
 
     // Install dependencies

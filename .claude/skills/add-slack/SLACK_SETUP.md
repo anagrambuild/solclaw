@@ -1,11 +1,11 @@
-# Slack App Setup for NanoClaw
+# Slack App Setup for SolClaw
 
-Step-by-step guide to creating and configuring a Slack app for use with NanoClaw.
+Step-by-step guide to creating and configuring a Slack app for use with SolClaw.
 
 ## Prerequisites
 
 - A Slack workspace where you have admin permissions (or permission to install apps)
-- Your NanoClaw instance with the `/add-slack` skill applied
+- Your SolClaw instance with the `/add-slack` skill applied
 
 ## Step 1: Create the Slack App
 
@@ -67,7 +67,7 @@ These scopes control what the bot is allowed to do.
 3. Review the permissions and click **Allow**
 4. **Copy the Bot User OAuth Token** — it starts with `xoxb-`. Save this somewhere safe.
 
-## Step 6: Configure NanoClaw
+## Step 6: Configure SolClaw
 
 Add both tokens to your `.env` file:
 
@@ -101,7 +101,7 @@ Repeat for each channel you want the bot in.
 
 ## Step 8: Get Channel IDs for Registration
 
-You need the Slack channel ID to register it with NanoClaw.
+You need the Slack channel ID to register it with SolClaw.
 
 **Option A — From the URL:**
 Open the channel in Slack on the web. The URL looks like:
@@ -119,7 +119,7 @@ curl -s -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
   "https://slack.com/api/conversations.list" | jq '.channels[] | {id, name}'
 ```
 
-The NanoClaw JID format is `slack:` followed by the channel ID, e.g., `slack:C0123456789`.
+The SolClaw JID format is `slack:` followed by the channel ID, e.g., `slack:C0123456789`.
 
 ## Token Reference
 

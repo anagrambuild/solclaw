@@ -145,7 +145,7 @@ function setupLinux(projectRoot: string, nodePath: string, homeDir: string): voi
 }
 
 /**
- * Kill any orphaned nanoclaw node processes left from previous runs or debugging.
+ * Kill any orphaned solclaw node processes left from previous runs or debugging.
  * Prevents WhatsApp "conflict" disconnects when two instances connect simultaneously.
  */
 function killOrphanedProcesses(projectRoot: string): void {
@@ -153,7 +153,7 @@ function killOrphanedProcesses(projectRoot: string): void {
     execSync(`pkill -f '${projectRoot}/dist/index\\.js' || true`, {
       stdio: 'ignore',
     });
-    logger.info('Stopped any orphaned nanoclaw processes');
+    logger.info('Stopped any orphaned solclaw processes');
   } catch {
     // pkill not available or no orphans
   }
@@ -241,7 +241,7 @@ WantedBy=${runningAsRoot ? 'multi-user.target' : 'default.target'}`;
     );
   }
 
-  // Kill orphaned nanoclaw processes to avoid WhatsApp conflict errors
+  // Kill orphaned solclaw processes to avoid WhatsApp conflict errors
   killOrphanedProcesses(projectRoot);
 
   // Enable and start
@@ -292,7 +292,7 @@ function setupNohupFallback(projectRoot: string, nodePath: string, homeDir: stri
 
   const lines = [
     '#!/bin/bash',
-    '# start-solclaw.sh — Start NanoClaw without systemd',
+    '# start-solclaw.sh — Start SolClaw without systemd',
     `# To stop: kill \\$(cat ${pidFile})`,
     '',
     'set -euo pipefail',
@@ -303,19 +303,19 @@ function setupNohupFallback(projectRoot: string, nodePath: string, homeDir: stri
     `if [ -f ${JSON.stringify(pidFile)} ]; then`,
     `  OLD_PID=$(cat ${JSON.stringify(pidFile)} 2>/dev/null || echo "")`,
     '  if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then',
-    '    echo "Stopping existing NanoClaw (PID $OLD_PID)..."',
+    '    echo "Stopping existing SolClaw (PID $OLD_PID)..."',
     '    kill "$OLD_PID" 2>/dev/null || true',
     '    sleep 2',
     '  fi',
     'fi',
     '',
-    'echo "Starting NanoClaw..."',
+    'echo "Starting SolClaw..."',
     `nohup ${JSON.stringify(nodePath)} ${JSON.stringify(projectRoot + '/dist/index.js')} \\`,
     `  >> ${JSON.stringify(projectRoot + '/logs/solclaw.log')} \\`,
     `  2>> ${JSON.stringify(projectRoot + '/logs/solclaw.error.log')} &`,
     '',
     `echo $! > ${JSON.stringify(pidFile)}`,
-    'echo "NanoClaw started (PID $!)"',
+    'echo "SolClaw started (PID $!)"',
     `echo "Logs: tail -f ${projectRoot}/logs/solclaw.log"`,
   ];
   const wrapper = lines.join('\n') + '\n';

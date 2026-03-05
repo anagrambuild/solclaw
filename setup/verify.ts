@@ -136,7 +136,7 @@ export async function run(_args: string[]): Promise<void> {
 
   // 7. Check mount allowlist
   let mountAllowlist = 'missing';
-  if (fs.existsSync(path.join(homeDir, '.config', 'nanoclaw', 'mount-allowlist.json'))) {
+  if (fs.existsSync(path.join(homeDir, '.config', 'solclaw', 'mount-allowlist.json'))) {
     mountAllowlist = 'configured';
   }
 

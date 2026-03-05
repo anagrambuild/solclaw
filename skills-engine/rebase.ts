@@ -172,7 +172,7 @@ export async function rebase(newBasePath?: string): Promise<RebaseResult> {
           // Find old base content from backup
           const oldBasePath = path.join(
             projectRoot,
-            '.nanoclaw',
+            '.solclaw',
             'backup',
             BASE_DIR,
             relPath,

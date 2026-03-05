@@ -33,7 +33,7 @@ and after claude code has been started run ```/setup ``` in the claude code itse
 ## Built With
 
 - [Solana Agent Kit](https://github.com/sendaifun/solana-agent-kit) - 60+ protocol actions
-- [NanoClaw](https://github.com/qwibitai/NanoClaw) - WhatsApp/Telegram integration
+- [SolClaw](https://github.com/qwibitai/NanoClaw) - WhatsApp/Telegram integration
 - [Claude AI](https://claude.ai) - Natural language understanding
 
 ## License

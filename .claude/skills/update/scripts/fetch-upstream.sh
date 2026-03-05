@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Fetch upstream NanoClaw and extract to a temp directory.
+# Fetch upstream SolClaw and extract to a temp directory.
 # Outputs a structured status block for machine parsing.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

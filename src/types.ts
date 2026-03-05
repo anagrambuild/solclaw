@@ -80,8 +80,8 @@ export interface TransactionRecord {
   id?: number;
   signature: string;
   protocol: string;
-  mint: string;
-  wallet_address: string | null;
+  mint: string | null;
+  wallet_address: string;
   amount: string | null;
   created_at: string;
   synced_at: string | null;

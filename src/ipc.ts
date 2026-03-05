@@ -124,12 +124,12 @@ export function startIpcWatcher(deps: IpcDeps): void {
             const filePath = path.join(transactionsDir, file);
             try {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-              if (data.type === 'log_transaction' && data.signature && data.protocol && data.mint) {
+              if (data.type === 'log_transaction' && data.signature && data.protocol && data.wallet_address) {
                 logTransaction({
                   signature: data.signature,
                   protocol: data.protocol,
-                  mint: data.mint,
-                  wallet_address: data.wallet_address || null,
+                  mint: data.mint || null,
+                  wallet_address: data.wallet_address,
                   amount: data.amount || null,
                   created_at: data.timestamp || new Date().toISOString(),
                 });

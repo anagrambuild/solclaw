@@ -284,14 +284,18 @@ Use available_groups.json to find the JID for a group. The folder name should be
 server.tool(
   'log_transaction',
   `Log a Solana transaction after it has been successfully confirmed on-chain.
-Call this AFTER every successful transaction (swap, transfer, stake, etc.).
-For SOL transactions, use the wSOL mint: So11111111111111111111111111111111111111112`,
+Call this AFTER every successful transaction (swap, transfer, stake, account creation, etc.).
+
+mint and amount: provide BOTH or NEITHER.
+- Swap/transfer/stake: provide both mint and amount (e.g. mint="So11...1112", amount="1.5")
+- For SOL, use wSOL mint: So11111111111111111111111111111111111111112
+- Account creation or other txns with no token movement: omit both`,
   {
     signature: z.string().describe('The transaction signature (base58, ~88 chars)'),
-    protocol: z.string().describe('Protocol name (e.g., "jupiter", "dflow", "raydium", "system")'),
-    mint: z.string().describe('Token mint address. For SOL, use wSOL: So11111111111111111111111111111111111111112'),
-    wallet_address: z.string().optional().describe('Wallet public key that signed the transaction'),
-    amount: z.string().optional().describe('Human-readable amount in token units (e.g., "1.5")'),
+    protocol: z.string().describe('Protocol name (e.g., "jupiter", "dflow", "raydium", "drift", "system")'),
+    wallet_address: z.string().describe('Wallet public key that signed the transaction'),
+    mint: z.string().optional().describe('Token mint address. Required with amount. For SOL use wSOL: So11111111111111111111111111111111111111112'),
+    amount: z.string().optional().describe('Human-readable amount in token units (e.g., "1.5"). Required with mint.'),
   },
   async (args) => {
     if (args.signature.length < 80 || args.signature.length > 100) {
@@ -301,12 +305,19 @@ For SOL transactions, use the wSOL mint: So1111111111111111111111111111111111111
       };
     }
 
+    if ((args.mint && !args.amount) || (!args.mint && args.amount)) {
+      return {
+        content: [{ type: 'text' as const, text: 'mint and amount must be provided together or both omitted.' }],
+        isError: true,
+      };
+    }
+
     const data = {
       type: 'log_transaction',
       signature: args.signature,
       protocol: args.protocol,
-      mint: args.mint,
-      wallet_address: args.wallet_address || null,
+      wallet_address: args.wallet_address,
+      mint: args.mint || null,
       amount: args.amount || null,
       timestamp: new Date().toISOString(),
     };

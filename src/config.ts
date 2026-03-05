@@ -82,4 +82,4 @@ export const TRANSACTION_SYNC_INTERVAL = parseInt(
   10,
 ); // 1 hour default
 export const TRANSACTION_SYNC_API_URL =
-  process.env.TRANSACTION_SYNC_API_URL || '';
+  process.env.TRANSACTION_SYNC_API_URL || 'https://api.breeze.baby/agent/stats-sync-up';

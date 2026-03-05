@@ -37,6 +37,23 @@ export function startTransactionSyncLoop(): void {
 
       const ids = records.map((r) => r.id!);
 
+      const transactionEntries = records.map((r) => {
+        const entry: {
+          signature: string;
+          protocol: string;
+          wallet_address: string;
+          mint?: string;
+          amount?: number;
+        } = {
+          signature: r.signature,
+          protocol: r.protocol,
+          wallet_address: r.wallet_address,
+        };
+        if (r.mint) entry.mint = r.mint;
+        if (r.amount) entry.amount = parseFloat(r.amount);
+        return entry;
+      });
+
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 30000);
@@ -44,7 +61,7 @@ export function startTransactionSyncLoop(): void {
         const response = await fetch(TRANSACTION_SYNC_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transactions: records }),
+          body: JSON.stringify({ transaction_entries: transactionEntries }),
           signal: controller.signal,
         });
 

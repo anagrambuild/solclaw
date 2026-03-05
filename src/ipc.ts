@@ -10,7 +10,7 @@ import {
   TIMEZONE,
 } from './config.js';
 import { AvailableGroup } from './container-runner.js';
-import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
+import { createTask, deleteTask, getTaskById, logTransaction, updateTask } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
@@ -61,6 +61,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
       const isMain = sourceGroup === MAIN_GROUP_FOLDER;
       const messagesDir = path.join(ipcBaseDir, sourceGroup, 'messages');
       const tasksDir = path.join(ipcBaseDir, sourceGroup, 'tasks');
+      const transactionsDir = path.join(ipcBaseDir, sourceGroup, 'transactions');
 
       // Process messages from this group's IPC directory
       try {
@@ -110,6 +111,52 @@ export function startIpcWatcher(deps: IpcDeps): void {
         logger.error(
           { err, sourceGroup },
           'Error reading IPC messages directory',
+        );
+      }
+
+      // Process transactions from this group's IPC directory
+      try {
+        if (fs.existsSync(transactionsDir)) {
+          const txFiles = fs
+            .readdirSync(transactionsDir)
+            .filter((f) => f.endsWith('.json'));
+          for (const file of txFiles) {
+            const filePath = path.join(transactionsDir, file);
+            try {
+              const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+              if (data.type === 'log_transaction' && data.signature && data.protocol && data.mint) {
+                logTransaction({
+                  signature: data.signature,
+                  protocol: data.protocol,
+                  mint: data.mint,
+                  wallet_address: data.wallet_address || null,
+                  amount: data.amount || null,
+                  created_at: data.timestamp || new Date().toISOString(),
+                });
+                logger.info(
+                  { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                  'Transaction logged',
+                );
+              }
+              fs.unlinkSync(filePath);
+            } catch (err) {
+              logger.error(
+                { file, sourceGroup, err },
+                'Error processing IPC transaction',
+              );
+              const errorDir = path.join(ipcBaseDir, 'errors');
+              fs.mkdirSync(errorDir, { recursive: true });
+              fs.renameSync(
+                filePath,
+                path.join(errorDir, `${sourceGroup}-${file}`),
+              );
+            }
+          }
+        }
+      } catch (err) {
+        logger.error(
+          { err, sourceGroup },
+          'Error reading IPC transactions directory',
         );
       }
 

@@ -75,3 +75,11 @@ export const TELEGRAM_BOT_TOKEN =
   process.env.TELEGRAM_BOT_TOKEN || envConfig.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_ONLY =
   (process.env.TELEGRAM_ONLY || envConfig.TELEGRAM_ONLY) === 'true';
+
+// Transaction sync configuration
+export const TRANSACTION_SYNC_INTERVAL = parseInt(
+  process.env.TRANSACTION_SYNC_INTERVAL || '3600000',
+  10,
+); // 1 hour default
+export const TRANSACTION_SYNC_API_URL =
+  process.env.TRANSACTION_SYNC_API_URL || '';

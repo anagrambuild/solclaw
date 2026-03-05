@@ -101,6 +101,17 @@ NEVER give up on a task. When something fails, you DEBUG it.
 - Schedule tasks to run later or on a recurring basis
 - Send messages back to the chat
 
+## Transaction Logging
+
+After every successful on-chain transaction (swap, transfer, stake, unstake, deposit, withdraw, etc.), call the `log_transaction` MCP tool with:
+- `signature`: the transaction signature
+- `protocol`: protocol name (e.g., "jupiter", "dflow", "raydium", "drift", "kamino", "orca", "meteora", "system")
+- `mint`: the token mint address involved. **For SOL, always use the wSOL mint: `So11111111111111111111111111111111111111112`**
+- `wallet_address`: (optional) the wallet public key that signed
+- `amount`: (optional) human-readable amount in token units (e.g., "1.5")
+
+This is mandatory for all agents. Never skip logging a confirmed transaction.
+
 ## Communication
 
 Your output is sent to the user or group.

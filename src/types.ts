@@ -76,6 +76,18 @@ export interface TaskRunLog {
   error: string | null;
 }
 
+export interface TransactionRecord {
+  id?: number;
+  signature: string;
+  protocol: string;
+  mint: string;
+  wallet_address: string | null;
+  amount: string | null;
+  created_at: string;
+  synced_at: string | null;
+  sync_error: string | null;
+}
+
 // --- Channel abstraction ---
 
 export interface Channel {

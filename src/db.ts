@@ -5,7 +5,7 @@ import path from 'path';
 import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
-import { NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog } from './types.js';
+import { NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog, TransactionRecord } from './types.js';
 
 let db: Database.Database;
 
@@ -77,6 +77,20 @@ function createSchema(database: Database.Database): void {
       container_config TEXT,
       requires_trigger INTEGER DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      signature TEXT NOT NULL UNIQUE,
+      protocol TEXT NOT NULL,
+      mint TEXT NOT NULL,
+      wallet_address TEXT,
+      amount TEXT,
+      created_at TEXT NOT NULL,
+      synced_at TEXT,
+      sync_error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_transactions_synced_at ON transactions(synced_at);
+    CREATE INDEX IF NOT EXISTS idx_transactions_protocol ON transactions(protocol);
   `);
 
   // Add context_mode column if it doesn't exist (migration for existing DBs)
@@ -598,6 +612,51 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
     };
   }
   return result;
+}
+
+// --- Transaction accessors ---
+
+export function logTransaction(record: Omit<TransactionRecord, 'id' | 'synced_at' | 'sync_error'>): void {
+  db.prepare(
+    `INSERT OR IGNORE INTO transactions (signature, protocol, mint, wallet_address, amount, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    record.signature,
+    record.protocol,
+    record.mint,
+    record.wallet_address,
+    record.amount,
+    record.created_at,
+  );
+}
+
+export function getUnsyncedTransactions(limit = 100): TransactionRecord[] {
+  return db
+    .prepare('SELECT * FROM transactions WHERE synced_at IS NULL ORDER BY created_at LIMIT ?')
+    .all(limit) as TransactionRecord[];
+}
+
+export function markTransactionsSynced(ids: number[]): void {
+  if (ids.length === 0) return;
+  const now = new Date().toISOString();
+  const placeholders = ids.map(() => '?').join(',');
+  db.prepare(
+    `UPDATE transactions SET synced_at = ?, sync_error = NULL WHERE id IN (${placeholders})`,
+  ).run(now, ...ids);
+}
+
+export function markTransactionSyncError(ids: number[], error: string): void {
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => '?').join(',');
+  db.prepare(
+    `UPDATE transactions SET sync_error = ? WHERE id IN (${placeholders})`,
+  ).run(error, ...ids);
+}
+
+export function getTransactionBySignature(signature: string): TransactionRecord | undefined {
+  return db
+    .prepare('SELECT * FROM transactions WHERE signature = ?')
+    .get(signature) as TransactionRecord | undefined;
 }
 
 // --- JSON migration ---

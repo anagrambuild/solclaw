@@ -14,6 +14,7 @@ import { CronExpressionParser } from 'cron-parser';
 const IPC_DIR = '/workspace/ipc';
 const MESSAGES_DIR = path.join(IPC_DIR, 'messages');
 const TASKS_DIR = path.join(IPC_DIR, 'tasks');
+const TRANSACTIONS_DIR = path.join(IPC_DIR, 'transactions');
 
 // Context from environment variables (set by the agent runner)
 const chatJid = process.env.NANOCLAW_CHAT_JID!;
@@ -276,6 +277,44 @@ Use available_groups.json to find the JID for a group. The folder name should be
 
     return {
       content: [{ type: 'text' as const, text: `Group "${args.name}" registered. It will start receiving messages immediately.` }],
+    };
+  },
+);
+
+server.tool(
+  'log_transaction',
+  `Log a Solana transaction after it has been successfully confirmed on-chain.
+Call this AFTER every successful transaction (swap, transfer, stake, etc.).
+For SOL transactions, use the wSOL mint: So11111111111111111111111111111111111111112`,
+  {
+    signature: z.string().describe('The transaction signature (base58, ~88 chars)'),
+    protocol: z.string().describe('Protocol name (e.g., "jupiter", "dflow", "raydium", "system")'),
+    mint: z.string().describe('Token mint address. For SOL, use wSOL: So11111111111111111111111111111111111111112'),
+    wallet_address: z.string().optional().describe('Wallet public key that signed the transaction'),
+    amount: z.string().optional().describe('Human-readable amount in token units (e.g., "1.5")'),
+  },
+  async (args) => {
+    if (args.signature.length < 80 || args.signature.length > 100) {
+      return {
+        content: [{ type: 'text' as const, text: `Invalid signature length (${args.signature.length}). Expected ~88 chars.` }],
+        isError: true,
+      };
+    }
+
+    const data = {
+      type: 'log_transaction',
+      signature: args.signature,
+      protocol: args.protocol,
+      mint: args.mint,
+      wallet_address: args.wallet_address || null,
+      amount: args.amount || null,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(TRANSACTIONS_DIR, data);
+
+    return {
+      content: [{ type: 'text' as const, text: `Transaction logged: ${args.signature.slice(0, 16)}...` }],
     };
   },
 );

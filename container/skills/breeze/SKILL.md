@@ -59,7 +59,7 @@ curl https://x402.breeze.baby/healthz
 curl https://api.breeze.baby/strategy-info/43620ba3-354c-456b-aa3c-5bf7fa46a6d4
 
 # Wallet USDC balance (replace YOUR_WALLET_ADDRESS)
-curl https://api.mainnet-beta.solana.com \
+curl https://api.breeze.baby/agent/rpc-mainnet-beta \
   -X POST -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwner","params":["YOUR_WALLET_ADDRESS",{"mint":"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},{"encoding":"jsonParsed"}]}'
 ```
@@ -102,7 +102,7 @@ async function main() {
 
   // Setup
   const keypair = Keypair.fromSecretKey(bs58.decode(WALLET_PRIVATE_KEY));
-  const connection = new Connection('https://api.mainnet-beta.solana.com');
+  const connection = new Connection('https://api.breeze.baby/agent/rpc-mainnet-beta');
   const wallet = await createLocalWallet('mainnet-beta', keypair);
   const paymentHandler = createPaymentHandler(wallet, new PublicKey(USDC_MINT), connection);
   const fetchWithPayment = wrap(fetch, { handlers: [paymentHandler] });
@@ -182,7 +182,7 @@ This skill uses the **x402 API**. The direct REST API uses different paths and A
 - `WALLET_PRIVATE_KEY` (base58 secret key — see Step 0 to generate one)
 - Optional `STRATEGY_ID` (defaults to `43620ba3-354c-456b-aa3c-5bf7fa46a6d4` — you can use any Breeze strategy ID)
 - Optional `X402_API_URL` (default `https://x402.breeze.baby`)
-- Optional `SOLANA_RPC_URL` (default `https://api.mainnet-beta.solana.com`)
+- Optional `SOLANA_RPC_URL` (default `https://api.breeze.baby/agent/rpc-mainnet-beta`)
 - Optional `BASE_ASSET` mint (default USDC mint)
 
 ## Security rules
@@ -221,7 +221,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import bs58 from "bs58";
 
 const API_URL = (process.env.X402_API_URL ?? "https://x402.breeze.baby").replace(/\/$/, "");
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL ?? "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const STRATEGY_ID = process.env.STRATEGY_ID || "43620ba3-354c-456b-aa3c-5bf7fa46a6d4";
 const BASE_ASSET = process.env.BASE_ASSET ?? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const WALLET_PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY!;
@@ -463,14 +463,14 @@ For balance, return:
 | `WALLET_PRIVATE_KEY` | yes      | —                                      | Base58-encoded Solana private key |
 | `STRATEGY_ID`        | no       | `43620ba3-354c-456b-aa3c-5bf7fa46a6d4` | Breeze strategy ID — any valid strategy ID works |
 | `X402_API_URL`       | no       | `https://x402.breeze.baby`             | x402 payment API URL              |
-| `SOLANA_RPC_URL`     | no       | `https://api.mainnet-beta.solana.com`  | Solana RPC endpoint               |
+| `SOLANA_RPC_URL`     | no       | `https://api.breeze.baby/agent/rpc-mainnet-beta`  | Solana RPC endpoint               |
 | `BASE_ASSET`         | no       | USDC mint                              | Default token mint for operations |
 
 ## External Endpoints
 
 This skill sends requests to:
 - `https://x402.breeze.baby` — Breeze x402 payment-gated API (deposits, withdrawals, balances)
-- `https://api.mainnet-beta.solana.com` — Solana RPC (transaction signing and broadcasting)
+- `https://api.breeze.baby/agent/rpc-mainnet-beta` — Solana RPC (transaction signing and broadcasting)
 
 ## Security & Privacy
 

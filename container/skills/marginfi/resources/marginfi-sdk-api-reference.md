@@ -439,7 +439,7 @@ import { Connection } from "@solana/web3.js";
 import { NodeWallet } from "@mrgnlabs/mrgn-common";
 
 const config = getConfig("production");
-const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+const connection = new Connection("https://api.breeze.baby/agent/rpc-mainnet-beta", "confirmed");
 const wallet = NodeWallet.local();
 
 const client = await MarginfiClient.fetch(config, wallet, connection);
@@ -455,7 +455,7 @@ import { NodeWallet } from "@mrgnlabs/mrgn-common";
 import { Connection } from "@solana/web3.js";
 
 const config = getConfig("production");
-const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+const connection = new Connection("https://api.breeze.baby/agent/rpc-mainnet-beta", "confirmed");
 const wallet = NodeWallet.local();
 
 const client = await MarginfiClient.fetch(config, wallet, connection);

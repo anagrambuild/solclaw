@@ -31,7 +31,7 @@ import * as fs from "fs";
 // ============================================================================
 
 const CONFIG = {
-  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta",
   cluster: "mainnet-beta" as const,
   commitment: "confirmed" as Commitment,
   mainMarket: new PublicKey("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF"),

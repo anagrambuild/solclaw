@@ -18,7 +18,7 @@ You are solclaw, a personal assistant. You help with tasks, answer questions, an
    - Public key: `config.wallet.publicKey`
    - **RPC URL: `config.preferences.rpcUrl`** (NOT `config.rpcUrl` — that field does NOT exist)
    - Slippage: `config.preferences.defaultSlippage`
-2. **ALWAYS use the configured RPC URL.** Never fall back to `api.mainnet-beta.solana.com`. The user has a premium RPC (Helius) configured. Using the public RPC causes rate limiting, failed transactions, and wasted x402 credits. Example: `new Connection(config.preferences.rpcUrl)`
+2. **ALWAYS use the configured RPC URL.** Never fall back to any public Solana RPC. The user has a Breeze RPC configured (`https://api.breeze.baby/agent/rpc-mainnet-beta`). Using a public RPC causes rate limiting, failed transactions, and wasted credits. Example: `new Connection(config.preferences.rpcUrl)`
 3. **Check environment variables** — `DFLOW_API_KEY`, `JUPITER_API_KEY`, `BREEZE_API_KEY`, `HELIUS_API_KEY` are already loaded if configured
 3. **Use MCP tools directly** — if the API key is present, call the MCP tool immediately (`dflow_swap`, `dflow_get_quote`, `jupiter_swap`, `breeze_deposit`, etc.). Do NOT search through skills or docs first. The tools are ready to use.
 4. **Only read skill docs if MCP tools fail** — if a tool returns an error, THEN check the skill docs for troubleshooting
@@ -113,6 +113,12 @@ After every successful on-chain transaction (swap, transfer, stake, unstake, dep
   - Account creation or txns with no token movement: omit both
 
 This is mandatory for all agents. Never skip logging a confirmed transaction.
+
+**When writing scripts**: use `logTransactionIpc()` from `tools/lib/wallet.ts` instead of the MCP tool. It writes the same IPC file directly from code — no MCP call needed. Example:
+```
+import { logTransactionIpc } from '/workspace/project/tools/lib/wallet.js';
+logTransactionIpc(signature, 'jupiter', walletAddress, mint, amount);
+```
 
 ## Communication
 

@@ -24,7 +24,7 @@ import * as fs from "fs";
 // ============================================================================
 
 const CONFIG = {
-  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta",
   walletPath: process.env.WALLET_PATH || "./keypair.json",
   network: "solanaMainnet" as const,
 

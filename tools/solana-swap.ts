@@ -8,7 +8,7 @@
  */
 
 import { VersionedTransaction } from '@solana/web3.js';
-import { loadWallet, resolveMint, jupiterBase, COMMON_TOKENS } from './lib/wallet.js';
+import { loadWallet, resolveMint, jupiterBase, logTransactionIpc, COMMON_TOKENS } from './lib/wallet.js';
 
 function parseArgs(args: string[]): { from: string; to: string; amount: string } {
   let from = '', to = '', amount = '';
@@ -87,11 +87,16 @@ if (!executeRes.ok) {
 }
 
 const result = await executeRes.json() as any;
+const signature = result.signature ?? result.txid;
+
+if (signature) {
+  logTransactionIpc(signature, 'jupiter', publicKey.toBase58(), inputMint, amount);
+}
 
 console.log(JSON.stringify({
-  signature: result.signature ?? result.txid,
+  signature,
   status: result.status ?? 'submitted',
   inputAmount: `${amount} ${from}`,
   outputAmount: result.outputAmount ?? order.outAmount ?? null,
-  explorer: result.signature ? `https://solscan.io/tx/${result.signature}` : null,
+  explorer: signature ? `https://solscan.io/tx/${signature}` : null,
 }));

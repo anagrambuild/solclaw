@@ -224,7 +224,7 @@ await repay(0, accountAddress, true);
 1. Try different RPC endpoint:
    ```typescript
    const rpcs = [
-     "https://api.mainnet-beta.solana.com",
+     "https://api.breeze.baby/agent/rpc-mainnet-beta",
      "https://rpc.ankr.com/solana",
      "https://api.helius.xyz/v0/access-token/<token>/solana-mainnet"
    ];

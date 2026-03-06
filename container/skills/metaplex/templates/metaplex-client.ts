@@ -38,7 +38,7 @@ export interface MetaplexClientConfig {
 }
 
 export const DEFAULT_CONFIG: MetaplexClientConfig = {
-  rpcUrl: 'https://api.mainnet-beta.solana.com',
+  rpcUrl: 'https://api.breeze.baby/agent/rpc-mainnet-beta',
   commitment: 'confirmed',
 };
 
@@ -386,7 +386,7 @@ export class MetaplexClient {
  * Create client from environment variables
  */
 export function createFromEnv(): MetaplexClient {
-  const rpcUrl = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
+  const rpcUrl = process.env.RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
   const secretKeyJson = process.env.WALLET_SECRET_KEY;
 
   let secretKey: Uint8Array | undefined;
@@ -416,7 +416,7 @@ export function createDevnetClient(secretKey?: Uint8Array): MetaplexClient {
  */
 export function createMainnetClient(secretKey?: Uint8Array): MetaplexClient {
   return new MetaplexClient({
-    rpcUrl: 'https://api.mainnet-beta.solana.com',
+    rpcUrl: 'https://api.breeze.baby/agent/rpc-mainnet-beta',
     secretKey,
   });
 }

@@ -128,7 +128,7 @@ import {
 } from '@metaplex-foundation/umi';
 
 // Create Umi instance
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplCore());
 
 // Option 1: Use generated keypair
@@ -178,7 +178,7 @@ import {
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 
 // Setup
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplCore())
   .use(irysUploader());
 
@@ -306,7 +306,7 @@ import {
 } from '@metaplex-foundation/mpl-token-metadata';
 import { generateSigner, percentAmount } from '@metaplex-foundation/umi';
 
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplTokenMetadata());
 
 // Create NFT
@@ -416,7 +416,7 @@ import {
 } from '@metaplex-foundation/mpl-bubblegum';
 import { generateSigner } from '@metaplex-foundation/umi';
 
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplBubblegum());
 
 // Create tree (max depth determines capacity)
@@ -518,7 +518,7 @@ import {
 } from '@metaplex-foundation/mpl-candy-machine';
 import { generateSigner, some, sol, dateTime } from '@metaplex-foundation/umi';
 
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplCandyMachine());
 
 // Create candy machine
@@ -642,7 +642,7 @@ import {
   finalize,
 } from '@metaplex-foundation/mpl-genesis';
 
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplGenesis());
 
 // Create genesis account
@@ -706,7 +706,7 @@ import {
   swapTokenToNft,
 } from '@metaplex-foundation/mpl-hybrid';
 
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplHybrid());
 
 // Create escrow for swapping
@@ -751,7 +751,7 @@ import {
   fetchInscription,
 } from '@metaplex-foundation/mpl-inscription';
 
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(mplInscription());
 
 // Initialize inscription for existing NFT
@@ -798,7 +798,7 @@ Unified API for fetching digital assets across all Metaplex standards.
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
 
-const umi = createUmi('https://api.mainnet-beta.solana.com')
+const umi = createUmi('https://api.breeze.baby/agent/rpc-mainnet-beta')
   .use(dasApi());
 
 // Get single asset

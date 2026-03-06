@@ -81,7 +81,7 @@ const client = new GlamClient({ wallet });
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { Connection } from "@solana/web3.js";
 
-const connection = new Connection("https://api.mainnet-beta.solana.com");
+const connection = new Connection("https://api.breeze.baby/agent/rpc-mainnet-beta");
 const provider = new AnchorProvider(connection, wallet, {
   commitment: "confirmed",
 });

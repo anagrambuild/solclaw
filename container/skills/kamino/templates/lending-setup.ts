@@ -29,7 +29,7 @@ import * as path from "path";
 
 const CONFIG = {
   // RPC endpoint (use your own for production)
-  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta",
 
   // Main lending market address
   mainMarket: new PublicKey("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF"),

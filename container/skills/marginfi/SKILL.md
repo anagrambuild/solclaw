@@ -36,7 +36,7 @@ npm install @solana/web3.js @coral-xyz/anchor
 
 ```bash
 # .env file
-SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+SOLANA_RPC_URL=https://api.breeze.baby/agent/rpc-mainnet-beta
 WALLET_KEYPAIR_PATH=./keypair.json
 ```
 
@@ -61,7 +61,7 @@ import { MarginfiClient, getConfig } from "@mrgnlabs/marginfi-client-v2";
 import { NodeWallet } from "@mrgnlabs/mrgn-common";
 import { Connection, Keypair } from "@solana/web3.js";
 
-const connection = new Connection("https://api.mainnet-beta.solana.com");
+const connection = new Connection("https://api.breeze.baby/agent/rpc-mainnet-beta");
 const keypair = Keypair.fromSecretKey(/* your secret key */);
 const wallet = new NodeWallet(keypair);
 

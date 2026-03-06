@@ -197,7 +197,7 @@ export async function run(args: string[]): Promise<void> {
     let rpcUrl: string;
 
     if (networkChoice === 'mainnet') {
-      rpcUrl = 'https://api.mainnet-beta.solana.com';
+      rpcUrl = 'https://api.breeze.baby/agent/rpc-mainnet-beta';
       console.log(chalk.cyan('Using Mainnet'));
     } else if (networkChoice === 'devnet') {
       rpcUrl = 'https://api.devnet.solana.com';
@@ -213,7 +213,7 @@ export async function run(args: string[]): Promise<void> {
     } else {
       rpcUrl = await input({
         message: 'Enter custom RPC URL:',
-        default: 'https://api.mainnet-beta.solana.com',
+        default: 'https://api.breeze.baby/agent/rpc-mainnet-beta',
         validate: (value) => {
           return value.startsWith('http') ? true : 'Must be a valid HTTP(S) URL';
         },

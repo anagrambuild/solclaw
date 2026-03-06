@@ -53,13 +53,13 @@ npm install @solana/web3.js@1 @coral-xyz/anchor@0.29.0
 
 1. Verify RPC URL format:
 ```typescript
-await setRpc("https://api.mainnet-beta.solana.com");
+await setRpc("https://api.breeze.baby/agent/rpc-mainnet-beta");
 ```
 
 2. Try alternative RPC providers:
 ```typescript
 // Free public RPCs (rate limited)
-const MAINNET_RPC = "https://api.mainnet-beta.solana.com";
+const MAINNET_RPC = "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const DEVNET_RPC = "https://api.devnet.solana.com";
 
 // Dedicated providers (recommended for production)

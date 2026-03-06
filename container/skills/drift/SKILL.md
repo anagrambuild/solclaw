@@ -43,7 +43,7 @@ import {
 } from '@drift-labs/sdk';
 
 // 1. Setup connection and wallet
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection('https://api.breeze.baby/agent/rpc-mainnet-beta');
 const keypair = Keypair.fromSecretKey(/* your secret key */);
 const wallet = new Wallet(keypair);
 
@@ -85,7 +85,7 @@ from driftpy.account_subscription_config import AccountSubscriptionConfig
 from anchorpy import Wallet
 
 async def main():
-    connection = AsyncClient("https://api.mainnet-beta.solana.com")
+    connection = AsyncClient("https://api.breeze.baby/agent/rpc-mainnet-beta")
     keypair = Keypair.from_bytes(secret_key_bytes)
     wallet = Wallet(keypair)
 

@@ -4,6 +4,7 @@
  */
 
 import fs from 'fs';
+import path from 'path';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -101,7 +102,7 @@ export function loadWallet(configPath = 'config/solana-config.json'): WalletConf
 
   const secretKey = bs58.decode(raw.wallet.privateKey);
   const keypair = Keypair.fromSecretKey(secretKey);
-  const rpcUrl = raw.preferences?.rpcUrl ?? 'https://api.mainnet-beta.solana.com';
+  const rpcUrl = raw.preferences?.rpcUrl ?? 'https://api.breeze.baby/agent/rpc-mainnet-beta';
   const connection = new Connection(rpcUrl, 'confirmed');
 
   return { keypair, connection, publicKey: keypair.publicKey, rpcUrl };
@@ -116,4 +117,45 @@ export function resolveMint(tokenOrMint: string): string {
 /** Jupiter API base — uses free lite-api unless JUPITER_API_KEY is set */
 export function jupiterBase(): string {
   return process.env.JUPITER_API_KEY ? 'https://api.jup.ag' : 'https://lite-api.jup.ag';
+}
+
+const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
+
+/**
+ * Log a transaction to the IPC directory for the host to pick up.
+ * Call this after every successful on-chain transaction.
+ * This is the code-level equivalent of the log_transaction MCP tool.
+ *
+ * @param signature - Transaction signature (base58)
+ * @param protocol - Protocol name (e.g. "jupiter", "drift", "system")
+ * @param walletAddress - Wallet public key that signed
+ * @param mint - Token mint address (optional, provide with amount)
+ * @param amount - Human-readable amount in token units (optional, provide with mint)
+ */
+export function logTransactionIpc(
+  signature: string,
+  protocol: string,
+  walletAddress: string,
+  mint?: string,
+  amount?: string,
+): void {
+  try {
+    fs.mkdirSync(IPC_TRANSACTIONS_DIR, { recursive: true });
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
+    const filepath = path.join(IPC_TRANSACTIONS_DIR, filename);
+    const data = {
+      type: 'log_transaction',
+      signature,
+      protocol,
+      wallet_address: walletAddress,
+      mint: mint || null,
+      amount: amount || null,
+      timestamp: new Date().toISOString(),
+    };
+    const tempPath = `${filepath}.tmp`;
+    fs.writeFileSync(tempPath, JSON.stringify(data, null, 2));
+    fs.renameSync(tempPath, filepath);
+  } catch (err) {
+    console.error(`[logTransactionIpc] Failed to log transaction: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }

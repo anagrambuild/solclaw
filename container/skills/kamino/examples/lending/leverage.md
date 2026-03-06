@@ -32,7 +32,7 @@ import {
 import Decimal from "decimal.js";
 import * as fs from "fs";
 
-const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const MAIN_MARKET = new PublicKey("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF");
 
 const wallet = Keypair.fromSecretKey(

@@ -21,7 +21,7 @@ import bs58 from "bs58";
 const SWAP_API = "https://quote-api.dflow.net";
 const METADATA_API = "https://api.prod.dflow.net";
 const API_KEY = process.env.DFLOW_API_KEY || "";
-const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta";
 
 // Common token mints
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";

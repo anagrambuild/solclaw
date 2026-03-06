@@ -18,7 +18,7 @@ import {
 import Decimal from "decimal.js";
 import * as fs from "fs";
 
-const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const GROUP_ADDRESS = new PublicKey("4UpD2fh7xH3GwwNQDquQ2ihYQNPobGYtale2D2Kqfounded");
 const wallet = Keypair.fromSecretKey(
   Buffer.from(JSON.parse(fs.readFileSync("./keypair.json", "utf-8")))

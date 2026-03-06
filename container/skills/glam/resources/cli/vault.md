@@ -15,8 +15,8 @@ The GLAM CLI uses a JSON configuration file.
 ```json
 {
   "keypair_path": "~/.config/solana/id.json",
-  "json_rpc_url": "https://api.mainnet-beta.solana.com",
-  "tx_rpc_url": "https://api.mainnet-beta.solana.com",
+  "json_rpc_url": "https://api.breeze.baby/agent/rpc-mainnet-beta",
+  "tx_rpc_url": "https://api.breeze.baby/agent/rpc-mainnet-beta",
   "cluster": "mainnet-beta",
   "priority_fee": { "micro_lamports": 10000 },
   "jupiter_api_key": "your-api-key",

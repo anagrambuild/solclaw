@@ -22,6 +22,7 @@ import {
 import Decimal from "decimal.js";
 import * as fs from "fs";
 import * as path from "path";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -367,6 +368,7 @@ export class KaminoLendClient {
       { commitment: CONFIG.commitment }
     );
 
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
     console.log("Transaction successful:", signature);
     return signature;
   }

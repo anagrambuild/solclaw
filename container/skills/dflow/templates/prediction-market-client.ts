@@ -20,6 +20,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import WebSocket from "ws";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================
 // Configuration
@@ -441,6 +442,7 @@ export class DFlowPredictionMarketClient {
     tx.sign([this.keypair]);
 
     const signature = await this.connection.sendTransaction(tx);
+    logTransactionIpc(signature, 'dflow', this.keypair!.publicKey.toBase58(), CONFIG.USDC_MINT, usdcAmount);
 
     if (order.executionMode === "async") {
       const finalStatus = await this.monitorOrder(
@@ -481,6 +483,7 @@ export class DFlowPredictionMarketClient {
     tx.sign([this.keypair]);
 
     const signature = await this.connection.sendTransaction(tx);
+    logTransactionIpc(signature, 'dflow', this.keypair!.publicKey.toBase58(), inputMint, amount);
 
     if (order.executionMode === "async") {
       const finalStatus = await this.monitorOrder(

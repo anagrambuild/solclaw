@@ -25,6 +25,7 @@ import {
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import * as fs from "fs";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -291,9 +292,11 @@ export class KaminoClient {
       ...action.cleanupIxs
     );
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
+    const signature = await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
       commitment: CONFIG.commitment,
     });
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
+    return signature;
   }
 
   // ========================================================================
@@ -377,9 +380,11 @@ export class KaminoClient {
     tx.add(...depositIxs);
     await this.liquidity.assignBlockInfoToTransaction(tx);
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
+    const signature = await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
       commitment: CONFIG.commitment,
     });
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
+    return signature;
   }
 
   async withdrawFromStrategy(
@@ -409,9 +414,11 @@ export class KaminoClient {
     tx.add(...withdrawIxs);
     await this.liquidity.assignBlockInfoToTransaction(tx);
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
+    const signature = await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
       commitment: CONFIG.commitment,
     });
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
+    return signature;
   }
 
   // ========================================================================

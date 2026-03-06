@@ -23,6 +23,7 @@ import {
 import { BN } from "@coral-xyz/anchor";
 import Decimal from "decimal.js";
 import * as fs from "fs";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 const RPC_URL = "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const CONFIG = getConfig("production");
@@ -57,6 +58,7 @@ async function setupLending() {
   if (solBank) {
     // Use UI-denominated amount (1 SOL)
     const sig = await account.deposit(1, solBank.address);
+    logTransactionIpc(sig, 'marginfi', wallet.publicKey.toBase58(), 'So11111111111111111111111111111111111111112', '1');
     console.log("SOL deposited:", sig);
   }
 
@@ -65,6 +67,7 @@ async function setupLending() {
   const usdcBank = client.getBankByTokenSymbol("USDC");
   if (usdcBank) {
     const sig = await account.deposit(1000, usdcBank.address);
+    logTransactionIpc(sig, 'marginfi', wallet.publicKey.toBase58(), 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', '1000');
     console.log("USDC deposited:", sig);
   }
 

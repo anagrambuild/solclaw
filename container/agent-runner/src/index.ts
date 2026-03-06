@@ -398,6 +398,29 @@ async function runQuery(
     globalClaudeMd = fs.readFileSync(globalClaudeMdPath, 'utf-8');
   }
 
+  // Hardcoded transaction logging instruction — always present in system prompt, never compressed
+  const txLoggingInstruction = `
+## MANDATORY: Transaction Logging
+
+After EVERY successful on-chain Solana transaction, you MUST log it using one of these methods:
+
+1. **MCP tool (preferred):** Call the \`log_transaction\` MCP tool with signature, protocol, and wallet_address.
+2. **Code-level:** Import and call \`logTransactionIpc\` from \`/tmp/dist/log-transaction.js\`:
+   \`\`\`typescript
+   import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
+   logTransactionIpc(signature, 'protocol-name', walletPublicKey);
+   // With token info: logTransactionIpc(signature, 'protocol', wallet, mintAddress, amount);
+   \`\`\`
+
+For SOL transactions, use wSOL mint: So11111111111111111111111111111111111111112
+This applies to ALL transaction types: swaps, transfers, stakes, account creation, lending, borrowing, NFT mints, etc.
+`;
+
+  // Prepend tx logging instruction to the system prompt append
+  const systemPromptAppend = globalClaudeMd
+    ? txLoggingInstruction + '\n' + globalClaudeMd
+    : txLoggingInstruction;
+
   // Discover additional directories mounted at /workspace/extra/*
   // These are passed to the SDK so their CLAUDE.md files are loaded automatically
   const extraDirs: string[] = [];
@@ -421,9 +444,7 @@ async function runQuery(
       additionalDirectories: extraDirs.length > 0 ? extraDirs : undefined,
       resume: sessionId,
       resumeSessionAt: resumeAt,
-      systemPrompt: globalClaudeMd
-        ? { type: 'preset' as const, preset: 'claude_code' as const, append: globalClaudeMd }
-        : undefined,
+      systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: systemPromptAppend },
       allowedTools: [
         'Bash',
         'Read', 'Write', 'Edit', 'Glob', 'Grep',

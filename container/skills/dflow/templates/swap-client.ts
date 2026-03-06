@@ -11,6 +11,7 @@ import {
   PublicKey,
   VersionedTransaction,
 } from "@solana/web3.js";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // Configuration
@@ -202,6 +203,7 @@ export class DFlowClient {
 
     // Sign and send
     const signature = await this.signAndSend(swap.swapTransaction, keypair);
+    logTransactionIpc(signature, 'dflow', keypair.publicKey.toBase58(), params.inputMint, params.amount);
 
     return {
       success: true,
@@ -287,6 +289,7 @@ export class DFlowClient {
 
     // Sign and send
     const signature = await this.signAndSend(order.transaction, keypair);
+    logTransactionIpc(signature, 'dflow', keypair.publicKey.toBase58(), inputMint, amount);
 
     // Handle execution mode
     let finalOutput = order.outAmount;

@@ -16,6 +16,7 @@ import {
 import Decimal from "decimal.js";
 import * as fs from "fs";
 import * as path from "path";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -219,6 +220,7 @@ export class KaminoLiquidityClient {
       { commitment: CONFIG.commitment }
     );
 
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
     console.log("Deposit successful:", signature);
     return signature;
   }
@@ -254,6 +256,7 @@ export class KaminoLiquidityClient {
       { commitment: CONFIG.commitment }
     );
 
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
     console.log("Single token deposit successful:", signature);
     return signature;
   }
@@ -290,6 +293,7 @@ export class KaminoLiquidityClient {
       { commitment: CONFIG.commitment }
     );
 
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
     console.log("Withdrawal successful:", signature);
     return signature;
   }
@@ -319,6 +323,7 @@ export class KaminoLiquidityClient {
       { commitment: CONFIG.commitment }
     );
 
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
     console.log("Full withdrawal successful:", signature);
     return signature;
   }
@@ -346,6 +351,7 @@ export class KaminoLiquidityClient {
       { commitment: CONFIG.commitment }
     );
 
+    logTransactionIpc(signature, 'kamino', this.wallet.publicKey.toBase58());
     console.log("Fees collected:", signature);
     return signature;
   }

@@ -114,11 +114,33 @@ After every successful on-chain transaction (swap, transfer, stake, unstake, dep
 
 This is mandatory for all agents. Never skip logging a confirmed transaction.
 
-**When writing scripts**: use `logTransactionIpc()` from `tools/lib/wallet.ts` instead of the MCP tool. It writes the same IPC file directly from code — no MCP call needed. Example:
+**CRITICAL — When writing scripts that send transactions**: Every script you write MUST log every transaction signature. Add `logTransactionIpc()` right after every `await` that returns a transaction signature (`txSig`, `txId`, etc.). This includes:
+- `driftClient.placePerpOrder(...)` → returns txSig
+- `driftClient.initializeUserAccount()` → returns txSig
+- `connection.sendTransaction(...)` → returns signature
+- `sdk.swap(...)`, `sdk.deposit(...)`, any SDK call that submits a tx
+- `callback()` from Orca instructions → returns signature
+- `sendAndConfirmTransaction(...)` → returns signature
+- `account.deposit(...)`, `account.borrow(...)` → returns signature
+
+Add this import at the top of EVERY script that does on-chain transactions:
 ```
-import { logTransactionIpc } from '/workspace/project/tools/lib/wallet.js';
-logTransactionIpc(signature, 'jupiter', walletAddress, mint, amount);
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 ```
+
+Then after EVERY transaction:
+```
+const txSig = await driftClient.placePerpOrder({...});
+logTransactionIpc(txSig, 'drift', wallet.publicKey.toString(), mint, amount);
+```
+
+For account creation (no token movement):
+```
+const txSig = await driftClient.initializeUserAccount();
+logTransactionIpc(txSig, 'drift', wallet.publicKey.toString());
+```
+
+If you forget this, the transaction will NOT be recorded. There is no automatic capture — you MUST add `logTransactionIpc()` after every tx in every script you write.
 
 ## Communication
 

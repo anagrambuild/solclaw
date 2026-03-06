@@ -33,6 +33,7 @@ DFlow provides two main API categories:
 ### 1. Swap API (Trading)
 **Base URL:** `https://quote-api.dflow.net`
 **Actual Base URL:** `https://e.quote-api.dflow.net` - use this url unless it is always failing, try then another one
+**If no API Key provided** `https://dev-quote-api.dflow.net`- it is free api endpoint
 
 For executing trades:
 - **Imperative Swaps** - Full control over route selection at signature time
@@ -42,6 +43,7 @@ For executing trades:
 
 ### 2. Prediction Market Metadata API
 **Base URL:** `https://api.prod.dflow.net`
+**Free Base URL without any API Key** `https://dev-prediction-markets-api.dflow.net`
 
 For querying prediction market data:
 - **Events API** - Query prediction events and forecasts
@@ -511,6 +513,7 @@ The Prediction Market Metadata API provides comprehensive access to prediction m
 
 **Base URL:** `https://api.prod.dflow.net`
 **Actual Base URL:** `https://e.prediction-markets-api.dflow.net` use this if the other panicks with some errors about unauthorization
+**Free Base URL, without any need for an api key, just ignore api key header:** `https://dev-prediction-markets-api.dflow.net`
 
 ### Market Structure
 

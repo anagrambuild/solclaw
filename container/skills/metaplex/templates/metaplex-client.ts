@@ -26,6 +26,7 @@ import {
   sol,
   some,
 } from '@metaplex-foundation/umi';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // Configuration
@@ -147,6 +148,7 @@ export class MetaplexClient {
         uri,
       }).sendAndConfirm(this.umi);
 
+      logTransactionIpc(tx.signature.toString(), 'metaplex', this.umi.identity.publicKey.toString());
       return {
         success: true,
         address: asset.publicKey.toString(),
@@ -167,6 +169,7 @@ export class MetaplexClient {
         newOwner: publicKey(newOwner),
       }).sendAndConfirm(this.umi);
 
+      logTransactionIpc(tx.signature.toString(), 'metaplex', this.umi.identity.publicKey.toString());
       return { success: true, signature: tx.signature.toString() };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -182,6 +185,7 @@ export class MetaplexClient {
         asset: publicKey(assetAddress),
       }).sendAndConfirm(this.umi);
 
+      logTransactionIpc(tx.signature.toString(), 'metaplex', this.umi.identity.publicKey.toString());
       return { success: true, signature: tx.signature.toString() };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -221,6 +225,7 @@ export class MetaplexClient {
         ],
       }).sendAndConfirm(this.umi);
 
+      logTransactionIpc(tx.signature.toString(), 'metaplex', this.umi.identity.publicKey.toString());
       return {
         success: true,
         address: mint.publicKey.toString(),
@@ -255,6 +260,7 @@ export class MetaplexClient {
         maxBufferSize,
       }).sendAndConfirm(this.umi);
 
+      logTransactionIpc(tx.signature.toString(), 'metaplex', this.umi.identity.publicKey.toString());
       return {
         success: true,
         address: merkleTree.publicKey.toString(),
@@ -291,6 +297,7 @@ export class MetaplexClient {
         },
       }).sendAndConfirm(this.umi);
 
+      logTransactionIpc(tx.signature.toString(), 'metaplex', this.umi.identity.publicKey.toString());
       return { success: true, signature: tx.signature.toString() };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -310,6 +317,7 @@ export class MetaplexClient {
         newLeafOwner: publicKey(newOwner),
       }).sendAndConfirm(this.umi);
 
+      logTransactionIpc(tx.signature.toString(), 'metaplex', this.umi.identity.publicKey.toString());
       return { success: true, signature: tx.signature.toString() };
     } catch (error) {
       return { success: false, error: (error as Error).message };

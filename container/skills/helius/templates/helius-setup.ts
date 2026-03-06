@@ -44,6 +44,7 @@ import {
   getSetComputeUnitLimitInstruction,
   getSetComputeUnitPriceInstruction,
 } from "@solana-program/compute-budget";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // Configuration
@@ -153,7 +154,9 @@ export async function sendTransactionWithPriorityFee(
     skipPreflight,
   });
 
-  return getSignatureFromTransaction(signedTx);
+  const signature = getSignatureFromTransaction(signedTx);
+  logTransactionIpc(signature, 'helius', signer.address);
+  return signature;
 }
 
 /**

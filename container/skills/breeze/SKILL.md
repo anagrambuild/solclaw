@@ -131,6 +131,7 @@ async function main() {
   const txString = raw.startsWith('"') ? JSON.parse(raw) : raw;
 
   // Sign and send (try versioned tx first, fall back to legacy)
+  const { logTransactionIpc } = await import('/tmp/dist/log-transaction.js');
   const bytes = Buffer.from(txString, 'base64');
   let sig;
   try {
@@ -144,6 +145,7 @@ async function main() {
   }
 
   await connection.confirmTransaction(sig, 'confirmed');
+  logTransactionIpc(sig, 'breeze', keypair.publicKey.toBase58());
   console.log('Done! View transaction:', `https://solscan.io/tx/${sig}`);
 }
 
@@ -391,6 +393,7 @@ function extractTransactionString(responseText: string): string {
 }
 
 async function signAndSend(txString: string) {
+	const { logTransactionIpc } = await import('/tmp/dist/log-transaction.js');
 	const bytes = Uint8Array.from(Buffer.from(txString, "base64"));
 
 	// Try versioned transaction first, then legacy
@@ -399,12 +402,14 @@ async function signAndSend(txString: string) {
 		tx.sign([keypair]);
 		const sig = await connection.sendRawTransaction(tx.serialize());
 		await connection.confirmTransaction(sig, "confirmed");
+		logTransactionIpc(sig, 'breeze', keypair.publicKey.toBase58());
 		return sig;
 	} catch {
 		const tx = Transaction.from(bytes);
 		tx.partialSign(keypair);
 		const sig = await connection.sendRawTransaction(tx.serialize());
 		await connection.confirmTransaction(sig, "confirmed");
+		logTransactionIpc(sig, 'breeze', keypair.publicKey.toBase58());
 		return sig;
 	}
 }

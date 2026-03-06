@@ -57,6 +57,8 @@ import * as fs from "fs";
 import * as path from "path";
 
 // ============================================================================
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
+
 // CONFIGURATION - Customize these values for your project
 // ============================================================================
 
@@ -225,13 +227,15 @@ export class OrcaClient {
   ): Promise<string> {
     await this.ensureInitialized();
 
-    return await swap(
+    const signature = await swap(
       this.rpc,
       { inputAmount, mint: inputMint },
       poolAddress,
       slippageBps || CONFIG.defaultSlippage,
       this.wallet!
     );
+    logTransactionIpc(signature, 'orca', this.wallet!.address.toString(), inputMint.toString(), inputAmount.toString());
+    return signature;
   }
 
   /**
@@ -289,6 +293,7 @@ export class OrcaClient {
     );
 
     const signature = await callback();
+    logTransactionIpc(signature, 'orca', this.wallet!.address.toString());
 
     return {
       signature,
@@ -321,6 +326,7 @@ export class OrcaClient {
       );
 
     const signature = await callback();
+    logTransactionIpc(signature, 'orca', this.wallet!.address.toString());
 
     return {
       signature,
@@ -354,6 +360,7 @@ export class OrcaClient {
     );
 
     const signature = await callback();
+    logTransactionIpc(signature, 'orca', this.wallet!.address.toString());
 
     return { signature, quote };
   }
@@ -383,6 +390,7 @@ export class OrcaClient {
     );
 
     const signature = await callback();
+    logTransactionIpc(signature, 'orca', this.wallet!.address.toString());
 
     return { signature, quote };
   }
@@ -397,6 +405,7 @@ export class OrcaClient {
       await harvestPositionInstructions(this.rpc, positionMint, this.wallet!);
 
     const signature = await callback();
+    logTransactionIpc(signature, 'orca', this.wallet!.address.toString());
 
     return { signature, feesQuote, rewardsQuote };
   }
@@ -415,6 +424,7 @@ export class OrcaClient {
     );
 
     const signature = await callback();
+    logTransactionIpc(signature, 'orca', this.wallet!.address.toString());
 
     return { signature, quote, feesQuote };
   }

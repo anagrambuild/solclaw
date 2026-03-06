@@ -437,6 +437,8 @@ Send and confirm a versioned transaction.
 
 ```typescript
 const txSig = await client.sendAndConfirm(vTx);
+// import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
+// logTransactionIpc(txSig, 'glam', client.getSigner().publicKey.toBase58());
 ```
 
 ### blockhashWithCache

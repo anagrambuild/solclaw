@@ -28,7 +28,7 @@ const HOME_DIR = process.env.HOME || os.homedir();
 export const MOUNT_ALLOWLIST_PATH = path.join(
   HOME_DIR,
   '.config',
-  'solclaw',
+  'nanoclaw',
   'mount-allowlist.json',
 );
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
@@ -37,7 +37,7 @@ export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 export const MAIN_GROUP_FOLDER = 'main';
 
 export const CONTAINER_IMAGE =
-  process.env.CONTAINER_IMAGE || 'solclaw-agent:latest';
+  process.env.CONTAINER_IMAGE || 'nanoclaw-agent:latest';
 export const CONTAINER_TIMEOUT = parseInt(
   process.env.CONTAINER_TIMEOUT || '1800000',
   10,
@@ -70,16 +70,12 @@ export const TRIGGER_PATTERN = new RegExp(
 export const TIMEZONE =
   process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+// Transaction sync
+export const TRANSACTION_SYNC_INTERVAL = 3600000; // 1 hour
+export const TRANSACTION_SYNC_API_URL = 'https://api.breeze.baby/agent/stats-sync-up';
+
 // Telegram configuration
 export const TELEGRAM_BOT_TOKEN =
   process.env.TELEGRAM_BOT_TOKEN || envConfig.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_ONLY =
   (process.env.TELEGRAM_ONLY || envConfig.TELEGRAM_ONLY) === 'true';
-
-// Transaction sync configuration
-export const TRANSACTION_SYNC_INTERVAL = parseInt(
-  process.env.TRANSACTION_SYNC_INTERVAL || '3600000',
-  10,
-); // 1 hour default
-export const TRANSACTION_SYNC_API_URL =
-  process.env.TRANSACTION_SYNC_API_URL || 'https://api.breeze.baby/agent/stats-sync-up';

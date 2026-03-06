@@ -87,6 +87,8 @@ const approveTx = multisig.instructions.proposalApprove({
 const tx = new Transaction().add(createTx, proposalTx, approveTx);
 const vTx = await glamClient.intoVersionedTransaction(tx);
 const txSig = await glamClient.sendAndConfirm(vTx);
+// import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
+// logTransactionIpc(txSig, 'glam', glamClient.getSigner().publicKey.toBase58());
 ```
 
 ## Supported Operations

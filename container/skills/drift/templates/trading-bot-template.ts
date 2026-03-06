@@ -26,6 +26,7 @@ import {
 } from '@drift-labs/sdk';
 import * as fs from 'fs';
 import * as dotenv from 'dotenv';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 dotenv.config();
 
@@ -215,6 +216,7 @@ async function placeOrder(
   }
 
   const txSig = await driftClient.placePerpOrder(orderParams);
+  logTransactionIpc(txSig, 'drift', driftClient.wallet.publicKey.toBase58());
   log('info', `Order placed: ${direction === PositionDirection.LONG ? 'BUY' : 'SELL'} ${size} @ ${price || 'MARKET'}`, { txSig });
   return txSig;
 }

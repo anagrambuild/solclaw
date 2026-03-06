@@ -154,8 +154,10 @@ const createSwigIx = await getCreateSwigInstruction({
 });
 
 // 6. Send transaction
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 const tx = new Transaction().add(createSwigIx);
 const signature = await sendAndConfirmTransaction(connection, tx, [payer]);
+logTransactionIpc(signature, 'swig', payer.publicKey.toBase58());
 
 // 7. Fetch and verify
 const swig = await fetchSwig(connection, swigAccountAddress);
@@ -224,6 +226,7 @@ const signedTx = await signTransaction([payer.keyPair], compiledTx);
 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(signedTx, {
   commitment: 'confirmed',
 });
+// logTransactionIpc(getSignatureFromTransaction(signedTx), 'swig', payer.address);
 
 const swig = await fetchSwig(rpc, swigAccountAddress);
 const walletAddress = await getSwigWalletAddress(swig);
@@ -260,7 +263,8 @@ const ixs = await getAddAuthorityInstructions(
 );
 
 const tx = new Transaction().add(...ixs);
-await sendAndConfirmTransaction(connection, tx, [rootKeypair]);
+const sig = await sendAndConfirmTransaction(connection, tx, [rootKeypair]);
+logTransactionIpc(sig, 'swig', rootKeypair.publicKey.toBase58());
 ```
 
 ### 3. Remove an Authority
@@ -284,7 +288,8 @@ const ixs = await getRemoveAuthorityInstructions(
 );
 
 const tx = new Transaction().add(...ixs);
-await sendAndConfirmTransaction(connection, tx, [rootKeypair]);
+const sig = await sendAndConfirmTransaction(connection, tx, [rootKeypair]);
+logTransactionIpc(sig, 'swig', rootKeypair.publicKey.toBase58());
 ```
 
 ### 4. Update Authority Permissions
@@ -325,7 +330,8 @@ const ixs = await getUpdateAuthorityInstructions(
 );
 
 const tx = new Transaction().add(...ixs);
-await sendAndConfirmTransaction(connection, tx, [rootKeypair]);
+const sig = await sendAndConfirmTransaction(connection, tx, [rootKeypair]);
+logTransactionIpc(sig, 'swig', rootKeypair.publicKey.toBase58());
 ```
 
 ### 5. Execute Transactions Through the Swig Wallet
@@ -355,7 +361,8 @@ const transferIx = SystemProgram.transfer({
 const signedIxs = await getSignInstructions(swig, role.id, [transferIx]);
 
 const tx = new Transaction().add(...signedIxs);
-await sendAndConfirmTransaction(connection, tx, [signerKeypair]);
+const sig = await sendAndConfirmTransaction(connection, tx, [signerKeypair]);
+logTransactionIpc(sig, 'swig', signerKeypair.publicKey.toBase58());
 ```
 
 ### 6. Using the Paymaster (Gasless Transactions)
@@ -381,6 +388,7 @@ const tx = await paymaster.createLegacyTransaction(
 
 // Paymaster signs and sends
 const signature = await paymaster.signAndSend(tx);
+logTransactionIpc(signature, 'swig', userKeypair.publicKey.toBase58());
 ```
 
 #### Kit Paymaster
@@ -407,6 +415,7 @@ await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
   fullySignedTx,
   { commitment: 'confirmed' },
 );
+// logTransactionIpc(getSignatureFromTransaction(fullySignedTx), 'swig', userKeypair.address);
 ```
 
 ### 7. Custom Gas Sponsorship Server

@@ -78,6 +78,8 @@ async function jupiterFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 // Sign and send any Jupiter transaction
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
+
 async function signAndSend(
   txBase64: string,
   wallet: Keypair,
@@ -90,6 +92,7 @@ async function signAndSend(
     maxRetries: 0,
     skipPreflight: true,
   });
+  logTransactionIpc(sig, 'jupiter', wallet.publicKey.toBase58());
   return sig;
 }
 ```

@@ -23,6 +23,7 @@ import {
 import { BN } from "@coral-xyz/anchor";
 import Decimal from "decimal.js";
 import * as fs from "fs";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 const RPC_URL = "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const CONFIG = getConfig("production");
@@ -49,6 +50,7 @@ async function setupCollateralBorrow() {
     if (solBank) {
       // Use UI-denominated amount (5 SOL)
       const sig = await account.deposit(5, solBank.address);
+      logTransactionIpc(sig, 'marginfi', keypair.publicKey.toBase58(), 'So11111111111111111111111111111111111111112', '5');
       console.log("✓ Deposited 5 SOL", sig);
   }
 
@@ -67,6 +69,7 @@ async function setupCollateralBorrow() {
     // Borrow portion of available
     const borrowAmount = maxBorrow.mul(0.5); // 50% of capacity
     const sigs = await account.borrow(borrowAmount.toNumber(), usdcBank.address);
+    logTransactionIpc(sigs, 'marginfi', keypair.publicKey.toBase58(), 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', borrowAmount.toFixed(2));
     console.log(`✓ Borrowed ${borrowAmount.toFixed(2)} USDC`, sigs);
   }
 

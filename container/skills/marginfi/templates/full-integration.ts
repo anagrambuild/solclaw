@@ -25,6 +25,7 @@ import {
 import { BN } from "@coral-xyz/anchor";
 import Decimal from "decimal.js";
 import * as fs from "fs";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -108,6 +109,7 @@ export class MarginfiFullClient {
 
     console.log(`\nDepositing ${amountTokens} ${bankLabel}...`);
     const sig = await this.account.deposit(amountTokens, bank.address);
+    logTransactionIpc(sig, 'marginfi', this.wallet.publicKey.toBase58());
     await this.account.reload();
     console.log(`✓ Deposit successful: ${sig}`);
   }
@@ -120,6 +122,7 @@ export class MarginfiFullClient {
 
     console.log(`\nWithdrawing ${amountTokens} ${bankLabel}...`);
     const sigs = await this.account.withdraw(amountTokens, bank.address, false);
+    logTransactionIpc(sigs, 'marginfi', this.wallet.publicKey.toBase58());
     await this.account.reload();
     console.log(`✓ Withdrawal successful: ${sigs}`);
   }
@@ -142,6 +145,7 @@ export class MarginfiFullClient {
     console.log("Net health (maint) before:", netHealth.toFixed(4));
     console.log("Free collateral:", freeCollateral.toFixed(4));
     const sigs = await this.account.borrow(amountTokens, bank.address);
+    logTransactionIpc(sigs, 'marginfi', this.wallet.publicKey.toBase58());
     await this.account.reload();
     const { assets: newAssets, liabilities: newLiabilities } = this.account.computeHealthComponents(MarginRequirementType.Maintenance);
     const newHealth = new Decimal(newAssets.toString()).minus(new Decimal(newLiabilities.toString()));
@@ -163,6 +167,7 @@ export class MarginfiFullClient {
       sigs = await this.account.repay(amount as any, bank.address, false);
     }
 
+    logTransactionIpc(sigs, 'marginfi', this.wallet.publicKey.toBase58());
     await this.account.reload();
     console.log(`✓ Repayment successful: ${sigs}`);
   }

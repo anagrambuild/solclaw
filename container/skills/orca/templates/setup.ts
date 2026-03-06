@@ -69,7 +69,7 @@ const CONFIG = {
     | "eclipseTestnet",
 
   // RPC endpoint (use environment variable in production)
-  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta",
 
   // Path to wallet keypair file
   walletPath: process.env.WALLET_PATH || "./keypair.json",

@@ -31,7 +31,7 @@ import * as fs from "fs";
 // ============================================================================
 
 const CONFIG = {
-  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta",
   commitment: "confirmed" as Commitment,
   // Use official SDK config instead of a hardcoded (possibly incorrect) group address
   groupConfig: getConfig("production"),

@@ -17,7 +17,7 @@ npm install -g @glamsystems/glam-cli
 cat > ~/.config/glam/config.json << 'EOF'
 {
   "keypair_path": "~/.config/solana/id.json",
-  "json_rpc_url": "https://api.mainnet-beta.solana.com"
+  "json_rpc_url": "https://api.breeze.baby/agent/rpc-mainnet-beta"
 }
 EOF
 

@@ -20,7 +20,7 @@ import bs58 from "bs58";
 // Configuration
 const API_BASE = "https://quote-api.dflow.net";
 const API_KEY = process.env.DFLOW_API_KEY;
-const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta";
 
 // Common tokens
 const TOKENS = {

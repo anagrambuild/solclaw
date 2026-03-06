@@ -644,7 +644,7 @@ async function example() {
   // Initialize client
   const client = new DFlowPredictionMarketClient({
     apiKey: process.env.DFLOW_API_KEY,
-    rpcUrl: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+    rpcUrl: process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta",
     privateKey: process.env.SOLANA_PRIVATE_KEY, // Optional, for trading
   });
 

@@ -6,7 +6,7 @@
 import { JupiterClient } from '@drift-labs/sdk';
 import { Connection } from '@solana/web3.js';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection('https://api.breeze.baby/agent/rpc-mainnet-beta');
 const jupiterClient = new JupiterClient({ connection });
 ```
 

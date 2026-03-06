@@ -10,7 +10,7 @@ import * as multisig from "@sqds/multisig";
 import { Connection, PublicKey, TransactionMessage } from "@solana/web3.js";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 
-const connection = new Connection("https://api.mainnet-beta.solana.com");
+const connection = new Connection("https://api.breeze.baby/agent/rpc-mainnet-beta");
 const wallet = new NodeWallet(memberKeypair);
 const glamClient = new GlamClient({ wallet });
 

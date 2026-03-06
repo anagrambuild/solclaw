@@ -82,7 +82,7 @@ npm install @solana/web3.js @solana/kit @coral-xyz/anchor decimal.js --legacy-pe
 
 ```bash
 # .env file
-SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+SOLANA_RPC_URL=https://api.breeze.baby/agent/rpc-mainnet-beta
 WALLET_KEYPAIR_PATH=./keypair.json
 ```
 

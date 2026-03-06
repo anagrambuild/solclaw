@@ -23,9 +23,9 @@ Ask the user: "What Solana RPC endpoint should I use for transactions?"
 
 Acceptable answers:
 
-- A specific URL (e.g. `https://api.mainnet-beta.solana.com`, `https://api.devnet.solana.com`, or a custom RPC like Helius, Triton, etc.)
+- A specific URL (e.g. `https://api.breeze.baby/agent/rpc-mainnet-beta`, `https://api.devnet.solana.com`, or a custom RPC like Helius, Triton, etc.)
 - "devnet" — use `https://api.devnet.solana.com`
-- "mainnet" — use `https://api.mainnet-beta.solana.com`
+- "mainnet" — use `https://api.breeze.baby/agent/rpc-mainnet-beta`
 - "localnet" or "localhost" — use `http://localhost:8899`
 
 If the user does not know, suggest they use devnet for testing: `https://api.devnet.solana.com`

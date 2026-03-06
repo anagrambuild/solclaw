@@ -405,7 +405,7 @@ import bs58 from "bs58";
 
 const client = new DFlowClient({
   apiKey: process.env.DFLOW_API_KEY,
-  rpcUrl: "https://api.mainnet-beta.solana.com",
+  rpcUrl: "https://api.breeze.baby/agent/rpc-mainnet-beta",
   defaultSlippageBps: 50,
 });
 

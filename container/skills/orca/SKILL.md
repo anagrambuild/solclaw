@@ -172,7 +172,7 @@ import { Connection, Keypair } from "@solana/web3.js";
 import fs from "fs";
 
 // Setup connection
-const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+const connection = new Connection("https://api.breeze.baby/agent/rpc-mainnet-beta", "confirmed");
 
 // Load wallet
 const secretKey = JSON.parse(fs.readFileSync("./keypair.json", "utf8"));
@@ -525,7 +525,7 @@ import {
 } from "@orca-so/whirlpools";
 
 // Set RPC endpoint
-await setRpc("https://api.mainnet-beta.solana.com");
+await setRpc("https://api.breeze.baby/agent/rpc-mainnet-beta");
 
 // Configure priority fees
 await setPriorityFeeSetting({

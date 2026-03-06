@@ -26,7 +26,7 @@ import { Wallet } from '@coral-xyz/anchor';
 import { VaultClient, getVaultClient } from '@drift-labs/vaults-sdk';
 import { DriftClient, BulkAccountLoader } from '@drift-labs/sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection('https://api.breeze.baby/agent/rpc-mainnet-beta');
 const wallet = new Wallet(keypair);
 
 // First create DriftClient

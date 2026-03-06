@@ -159,7 +159,7 @@ async function main() {
     console.log(chalk.yellow('\n\nStep 2: RPC Configuration'));
     const rpcUrl = await input({
       message: 'Solana RPC URL:',
-      default: 'https://api.mainnet-beta.solana.com',
+      default: 'https://api.breeze.baby/agent/rpc-mainnet-beta',
     });
 
     const defaultSlippage = await input({

@@ -52,7 +52,7 @@ Set the RPC endpoint for the SDK.
 ```typescript
 import { setRpc } from "@orca-so/whirlpools";
 
-await setRpc("https://api.mainnet-beta.solana.com");
+await setRpc("https://api.breeze.baby/agent/rpc-mainnet-beta");
 ```
 
 ---

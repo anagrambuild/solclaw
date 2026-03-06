@@ -24,7 +24,7 @@ import { BN } from "@coral-xyz/anchor";
 import Decimal from "decimal.js";
 import * as fs from "fs";
 
-const RPC_URL = "https://api.mainnet-beta.solana.com";
+const RPC_URL = "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const CONFIG = getConfig("production");
 
 async function setupCollateralBorrow() {

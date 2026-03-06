@@ -23,7 +23,7 @@ import * as path from "path";
 
 const CONFIG = {
   // RPC endpoint
-  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  rpcUrl: process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta",
 
   // Cluster
   cluster: "mainnet-beta" as const,

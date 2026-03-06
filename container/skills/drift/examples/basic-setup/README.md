@@ -24,7 +24,7 @@ import {
 import * as fs from 'fs';
 
 // Configuration
-const RPC_URL = 'https://api.mainnet-beta.solana.com';
+const RPC_URL = 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const ENV: DriftEnv = 'mainnet-beta';
 
 async function setupDriftClient() {
@@ -158,7 +158,7 @@ from driftpy.drift_client import DriftClient
 from driftpy.account_subscription_config import AccountSubscriptionConfig
 from driftpy.constants.numeric_constants import QUOTE_PRECISION
 
-RPC_URL = "https://api.mainnet-beta.solana.com"
+RPC_URL = "https://api.breeze.baby/agent/rpc-mainnet-beta"
 ENV = "mainnet"
 
 async def setup_drift_client():
@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
 ```bash
 # .env file
-RPC_URL=https://api.mainnet-beta.solana.com
+RPC_URL=https://api.breeze.baby/agent/rpc-mainnet-beta
 DRIFT_ENV=mainnet-beta
 PRIVATE_KEY=[1,2,3,...] # Your keypair as JSON array
 ```

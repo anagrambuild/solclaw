@@ -55,6 +55,24 @@ Keep messages clean and readable for WhatsApp.
 
 ---
 
+## Transaction Logging
+
+All Solana transactions are **automatically logged** via a fetch interceptor — every `sendTransaction` RPC call and Jupiter Ultra `/execute` is caught at the runtime level with protocol `"auto"`.
+
+To improve tracking quality, you should ALSO log transactions explicitly after confirmation with richer metadata (protocol name, mint, amount). Write an IPC file:
+
+```js
+import fs from 'fs';
+const data = { type: 'log_transaction', signature: sig, protocol: 'jupiter', wallet_address: walletAddress, mint: mintAddress, amount: '0.5', timestamp: new Date().toISOString() };
+const f = `/workspace/ipc/transactions/${Date.now()}-${Math.random().toString(36).slice(2,8)}.json`;
+fs.writeFileSync(f + '.tmp', JSON.stringify(data));
+fs.renameSync(f + '.tmp', f);
+```
+
+Duplicates are deduplicated by signature — the first-logged entry wins, so your explicit log (with real protocol/mint/amount) takes priority over the auto-logged `"auto"` entry.
+
+---
+
 ## Admin Context
 
 This is the **main channel**, which has elevated privileges.

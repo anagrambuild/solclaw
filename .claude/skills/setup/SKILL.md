@@ -80,9 +80,13 @@ If HAS_ENV=true from step 2, read `.env` and check for `CLAUDE_CODE_OAUTH_TOKEN`
 
 AskUserQuestion: Claude subscription (Pro/Max) vs Anthropic API key?
 
-**Subscription:** Tell user to run `claude setup-token` in another terminal, copy the token, add `CLAUDE_CODE_OAUTH_TOKEN=<token>` to `.env`. Do NOT collect the token in chat.
+**Subscription:** First ensure the Claude CLI is installed: `npm install -g @anthropic-ai/claude-code`. Then tell the user to run `claude auth login` in another terminal to authenticate via their browser. Once authenticated, extract the OAuth token:
+- macOS: `security find-generic-password -s "Claude Code-credentials" -w`
+- Linux/other: check `~/.claude/.credentials.json`
 
-**API key:** Tell user to add `ANTHROPIC_API_KEY=<key>` to `.env`.
+Tell user to add `CLAUDE_CODE_OAUTH_TOKEN=<token>` to `.env`. Do NOT collect the token in chat.
+
+**API key:** If the user provides the key directly, write it to `.env` yourself (`ANTHROPIC_API_KEY=<key>`). Otherwise tell user to add `ANTHROPIC_API_KEY=<key>` to `.env`.
 
 ## 5. WhatsApp Authentication
 

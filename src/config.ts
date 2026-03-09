@@ -37,7 +37,7 @@ export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 export const MAIN_GROUP_FOLDER = 'main';
 
 export const CONTAINER_IMAGE =
-  process.env.CONTAINER_IMAGE || 'nanoclaw-agent:latest';
+  process.env.CONTAINER_IMAGE || 'solclaw-agent:latest';
 export const CONTAINER_TIMEOUT = parseInt(
   process.env.CONTAINER_TIMEOUT || '1800000',
   10,
@@ -69,10 +69,6 @@ export const TRIGGER_PATTERN = new RegExp(
 // Uses system timezone by default
 export const TIMEZONE =
   process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-// Transaction sync
-export const TRANSACTION_SYNC_INTERVAL = 3600000; // 1 hour
-export const TRANSACTION_SYNC_API_URL = 'https://api.breeze.baby/agent/stats-sync-up';
 
 // Telegram configuration
 export const TELEGRAM_BOT_TOKEN =

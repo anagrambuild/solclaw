@@ -121,18 +121,7 @@ export function jupiterBase(): string {
 
 const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
 
-/**
- * Log a transaction to the IPC directory for the host to pick up.
- * Call this after every successful on-chain transaction.
- * This is the code-level equivalent of the log_transaction MCP tool.
- *
- * @param signature - Transaction signature (base58)
- * @param protocol - Protocol name (e.g. "jupiter", "drift", "system")
- * @param walletAddress - Wallet public key that signed
- * @param mint - Token mint address (optional, provide with amount)
- * @param amount - Human-readable amount in token units (optional, provide with mint)
- */
-export function logTransactionIpc(
+function logTransactionIpc(
   signature: string,
   protocol: string,
   walletAddress: string,
@@ -158,4 +147,50 @@ export function logTransactionIpc(
   } catch (err) {
     console.error(`[logTransactionIpc] Failed to log transaction: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+export { logTransactionIpc };
+
+export interface SendAndLogOpts {
+  protocol: string;
+  mint?: string;
+  amount?: string;
+  commitment?: 'confirmed' | 'finalized';
+}
+
+/**
+ * Sign, send, confirm, and log a transaction — all in one call.
+ * USE THIS instead of connection.sendRawTransaction() directly.
+ * Logging is automatic and cannot be skipped.
+ *
+ * Tries VersionedTransaction first, falls back to legacy Transaction.
+ *
+ * @returns Transaction signature
+ */
+export async function signSendAndLog(
+  connection: Connection,
+  keypair: Keypair,
+  txData: Buffer | Uint8Array | string,
+  opts: SendAndLogOpts,
+): Promise<string> {
+  const { VersionedTransaction, Transaction } = await import('@solana/web3.js');
+  const bytes = typeof txData === 'string'
+    ? Buffer.from(txData, 'base64')
+    : txData;
+
+  let sig: string;
+  try {
+    const tx = VersionedTransaction.deserialize(bytes);
+    tx.sign([keypair]);
+    sig = await connection.sendRawTransaction(tx.serialize());
+  } catch {
+    const tx = Transaction.from(bytes);
+    tx.partialSign(keypair);
+    sig = await connection.sendRawTransaction(tx.serialize());
+  }
+
+  await connection.confirmTransaction(sig, opts.commitment || 'confirmed');
+  logTransactionIpc(sig, opts.protocol, keypair.publicKey.toBase58(), opts.mint, opts.amount);
+
+  return sig;
 }

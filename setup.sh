@@ -122,6 +122,33 @@ log "=== Bootstrap started ==="
 
 detect_platform
 check_node
+
+# Auto-install Node.js via nvm if missing
+if [ "$NODE_OK" = "false" ]; then
+  log "Node.js missing or too old — attempting auto-install via nvm"
+
+  # Install nvm if not present
+  if [ -z "${NVM_DIR:-}" ]; then
+    export NVM_DIR="$HOME/.nvm"
+  fi
+
+  if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+    log "Installing nvm..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash >> "$LOG_FILE" 2>&1
+  fi
+
+  # Source nvm and install Node 22
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+    log "Installing Node.js 22 via nvm..."
+    nvm install 22 >> "$LOG_FILE" 2>&1
+    check_node
+    log "After nvm install: NODE_OK=$NODE_OK NODE_VERSION=$NODE_VERSION"
+  else
+    log "nvm installation failed — cannot auto-install Node.js"
+  fi
+fi
+
 install_deps
 check_build_tools
 

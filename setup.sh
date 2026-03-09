@@ -163,7 +163,7 @@ elif [ "$NATIVE_OK" = "false" ]; then
 fi
 
 cat <<EOF
-=== NANOCLAW SETUP: BOOTSTRAP ===
+=== SOLCLAW SETUP: BOOTSTRAP ===
 PLATFORM: $PLATFORM
 IS_WSL: $IS_WSL
 IS_ROOT: $IS_ROOT

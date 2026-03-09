@@ -22,7 +22,7 @@ import {
   getAccount,
   TokenAccountNotFoundError,
 } from '@solana/spl-token';
-import { loadWallet, resolveMint, COMMON_TOKENS } from './lib/wallet.js';
+import { loadWallet, resolveMint, logTransactionIpc, COMMON_TOKENS } from './lib/wallet.js';
 
 function parseArgs(args: string[]): { to: string; amount: string; token?: string } {
   let to = '', amount = '', token: string | undefined;
@@ -54,6 +54,7 @@ if (!token) {
   );
 
   const signature = await sendAndConfirmTransaction(connection, tx, [keypair]);
+  logTransactionIpc(signature, 'system', publicKey.toBase58(), COMMON_TOKENS.SOL, amount);
   console.log(JSON.stringify({
     signature,
     amount: `${amount} SOL`,
@@ -93,6 +94,7 @@ if (!token) {
   tx.add(createTransferInstruction(senderAta, recipientAta, publicKey, rawAmount));
 
   const signature = await sendAndConfirmTransaction(connection, tx, [keypair]);
+  logTransactionIpc(signature, 'spl-transfer', publicKey.toBase58(), mint.toBase58(), amount);
   console.log(JSON.stringify({
     signature,
     amount: `${amount} ${token}`,

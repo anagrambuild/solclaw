@@ -44,6 +44,9 @@ RUN npm install
 # Copy source code
 COPY agent-runner/ ./
 
+# Copy Solana transaction auto-logging preload script
+COPY solana-tx-preload.cjs /app/solana-tx-preload.cjs
+
 # Build TypeScript
 RUN npm run build
 
@@ -51,7 +54,7 @@ RUN npm run build
 RUN ln -s $(npm root -g)/tsx node_modules/tsx
 
 # ESM interop for all node processes (safe, no tsx dependency)
-ENV NODE_OPTIONS="--experimental-require-module"
+ENV NODE_OPTIONS="--experimental-require-module --require /app/solana-tx-preload.cjs"
 
 # Create workspace directories
 RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input /workspace/ipc/transactions

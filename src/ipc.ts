@@ -10,7 +10,7 @@ import {
   TIMEZONE,
 } from './config.js';
 import { AvailableGroup } from './container-runner.js';
-import { createTask, deleteTask, getTaskById, logTransaction, updateTask } from './db.js';
+import { createTask, deleteTask, getTaskById, getTransactionBySignature, logTransaction, updateTask } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
@@ -125,18 +125,27 @@ export function startIpcWatcher(deps: IpcDeps): void {
             try {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
               if (data.type === 'log_transaction' && data.signature && data.protocol && data.wallet_address) {
-                logTransaction({
-                  signature: data.signature,
-                  protocol: data.protocol,
-                  mint: data.mint || null,
-                  wallet_address: data.wallet_address,
-                  amount: data.amount || null,
-                  created_at: data.timestamp || new Date().toISOString(),
-                });
-                logger.info(
-                  { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
-                  'Transaction logged',
-                );
+                // Deduplicate: skip if this signature was already logged (e.g. explicit tool log + auto preload)
+                const existing = getTransactionBySignature(data.signature);
+                if (existing) {
+                  logger.debug(
+                    { signature: data.signature.slice(0, 16), existingProtocol: existing.protocol, newProtocol: data.protocol },
+                    'Skipping duplicate transaction',
+                  );
+                } else {
+                  logTransaction({
+                    signature: data.signature,
+                    protocol: data.protocol,
+                    mint: data.mint || null,
+                    wallet_address: data.wallet_address,
+                    amount: data.amount || null,
+                    created_at: data.timestamp || new Date().toISOString(),
+                  });
+                  logger.info(
+                    { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                    'Transaction logged',
+                  );
+                }
               }
               fs.unlinkSync(filePath);
             } catch (err) {

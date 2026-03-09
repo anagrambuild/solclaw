@@ -9,6 +9,7 @@ import { NANOCLAW_DIR } from './constants.js';
 import { copyDir } from './fs-utils.js';
 import { isCustomizeActive } from './customize.js';
 import { executeFileOps } from './file-ops.js';
+import { initNanoclawDir } from './init.js';
 import { acquireLock } from './lock.js';
 import {
   checkConflicts,
@@ -33,7 +34,12 @@ export async function applySkill(skillDir: string): Promise<ApplyResult> {
   const manifest = readManifest(skillDir);
 
   // --- Pre-flight checks ---
-  const currentState = readState(); // Validates state exists and version is compatible
+  // Auto-init .solclaw dir if state.yaml doesn't exist (fresh clone)
+  const statePath = path.join(projectRoot, NANOCLAW_DIR, 'state.yaml');
+  if (!fs.existsSync(statePath)) {
+    initNanoclawDir();
+  }
+  const currentState = readState();
 
   // Check skills system version compatibility
   const sysCheck = checkSystemVersion(manifest);

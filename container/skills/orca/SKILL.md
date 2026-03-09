@@ -283,31 +283,67 @@ console.log("Swap signature:", signature);
 
 ### Open Concentrated Liquidity Position
 
+> **IMPORTANT: `IncreaseLiquidityParam` format in SDK v7**
+>
+> In SDK v7, `openPositionInstructions` / `openConcentratedPosition` internally call `getIncreaseLiquidityInstructions` which destructures `param: { tokenMaxA, tokenMaxB }` directly. Passing `{ tokenA: bigint }` will cause `TypeError: Cannot convert undefined to a BigInt` because `tokenMaxA` ends up as `undefined`.
+>
+> The correct pattern is to compute the quote first with `increaseLiquidityQuoteA` (or `B`) from `@orca-so/whirlpools-core`, then pass `{ tokenMaxA: quote.tokenMaxA, tokenMaxB: quote.tokenMaxB }`.
+
 ```typescript
 import { openConcentratedPosition, openPositionInstructions } from "@orca-so/whirlpools";
+import { increaseLiquidityQuoteA, priceToTickIndex, getInitializableTickIndex } from "@orca-so/whirlpools-core";
 import { address, createSolanaRpc } from "@solana/kit";
 
 const poolAddress = address("POOL_ADDRESS");
-const lowerPrice = 0.001;  // Lower bound of price range
-const upperPrice = 100.0;  // Upper bound of price range
 const slippageTolerance = 100; // 1%
-const param = { tokenA: 1_000_000_000n }; // 1 token with 9 decimals
+
+// Fetch pool to get current price, sqrtPrice, and tickSpacing
+const pools = await fetchWhirlpoolsByTokenPair(rpc, tokenMintA, tokenMintB);
+const pool = pools.find(p => p.address === "POOL_ADDRESS");
+
+// Compute ticks from price range (use actual token decimals from pool)
+const decimalsA = 9; // verify from pool data
+const decimalsB = 6;
+const lowerTick = getInitializableTickIndex(
+  priceToTickIndex(pool.price * 0.75, decimalsA, decimalsB),
+  pool.tickSpacing, false
+);
+const upperTick = getInitializableTickIndex(
+  priceToTickIndex(pool.price * 1.25, decimalsA, decimalsB),
+  pool.tickSpacing, true
+);
+
+// Compute quote — this gives the { tokenMaxA, tokenMaxB } the SDK expects
+const solAmount = 10_000_000n; // 0.01 SOL in lamports (tokenA)
+const quote = increaseLiquidityQuoteA(
+  solAmount,
+  slippageTolerance,
+  pool.sqrtPrice,
+  lowerTick,
+  upperTick,
+);
+const param = { tokenMaxA: quote.tokenMaxA, tokenMaxB: quote.tokenMaxB };
 
 // Option 1: Wrapper (uses global config — NO rpc, NO wallet)
 const result = await openConcentratedPosition(
-  poolAddress, param, lowerPrice, upperPrice, slippageTolerance
+  poolAddress, param, pool.price * 0.75, pool.price * 1.25, slippageTolerance
 );
+console.log("Position mint:", result.positionMint);
 const txId = await result.callback();
 
 // Option 2: Instructions function (explicit rpc + funder)
 const rpc = createSolanaRpc(rpcUrl);
-const { instructions, quote, positionMint, initializationCost } =
-  await openPositionInstructions(rpc, poolAddress, param, lowerPrice, upperPrice, slippageTolerance, true, wallet);
-
-console.log("Position mint:", positionMint);
-console.log("Token A required:", quote.tokenEstA);
-console.log("Token B required:", quote.tokenEstB);
+const { instructions, positionMint, initializationCost } =
+  await openPositionInstructions(rpc, poolAddress, param, pool.price * 0.75, pool.price * 1.25, slippageTolerance, true, wallet);
 ```
+
+> **SOL balance requirement for `openPositionInstructions`**
+>
+> `OpenPositionWithTokenExtensions` creates several on-chain accounts (position PDA, Token-2022 NFT mint with metadata, Token-2022 ATA for the NFT). This costs approximately **~10M lamports (~0.01 SOL)** in overhead, independent of the liquidity amount. The `initializationCost` returned by the SDK is incorrectly reported as 0 — do not rely on it.
+>
+> Budget rule: `walletSOL ≥ 0.01 (overhead) + 0.002 (keypair rent, refunded) + tokenMaxA + txFees`
+>
+> For a wallet with 0.019 SOL, the maximum depositable SOL is approximately 0.006 SOL.
 
 ### Open Full Range Position
 
@@ -554,8 +590,11 @@ await setDefaultSlippageToleranceBps(100); // 1%
 // Set default funder for transactions
 await setDefaultFunder(wallet);
 
-// Configure SOL wrapping behavior
-await setNativeMintWrappingStrategy("ata"); // or "none"
+// Configure SOL wrapping behavior — default is "keypair" (recommended)
+// WARNING: "ata" strategy has a bug when SOL is tokenA — it reads the USDC
+// account balance instead of the wSOL balance, causing InsufficientFunds (Custom 1).
+// Do NOT use "ata" for SOL/X pools where SOL is tokenA. Use default "keypair".
+await setNativeMintWrappingStrategy("none"); // only if wSOL ATA already funded
 ```
 
 ### Reset Configuration

@@ -15,9 +15,10 @@ Run setup steps automatically. Only pause when user action is required (WhatsApp
 
 Run `bash setup.sh` and parse the status block.
 
-- If NODE_OK=false → Node.js is missing or too old. Use `AskUserQuestion: Would you like me to install Node.js 22?` If confirmed:
-  - macOS: `brew install node@22` (if brew available) or install nvm then `nvm install 22`
-  - Linux: `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs`, or nvm
+- If NODE_OK=false → Node.js is missing or too old. The bootstrap script already attempts auto-install via nvm. If that failed too, use `AskUserQuestion: Would you like me to install Node.js 22?` If confirmed:
+  - Try nvm first (no sudo required): `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm install 22`
+  - macOS fallback: `brew install node@22` (only if brew is available and working)
+  - Linux fallback: `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs`
   - After installing Node, re-run `bash setup.sh`
 - If DEPS_OK=false → Read `logs/setup.log`. Try: delete `node_modules` and `package-lock.json`, re-run `bash setup.sh`. If native module build fails, install build tools (`xcode-select --install` on macOS, `build-essential` on Linux), then retry.
 - If NATIVE_OK=false → better-sqlite3 failed to load. Install build tools and re-run.
@@ -47,7 +48,7 @@ Check the preflight results for `APPLE_CONTAINER` and `DOCKER`, and the PLATFORM
 - DOCKER=running → continue to 3b
 - DOCKER=installed_not_running → start Docker: `open -a Docker` (macOS) or `sudo systemctl start docker` (Linux). Wait 15s, re-check with `docker info`.
 - DOCKER=not_found → Use `AskUserQuestion: Docker is required for running agents. Would you like me to install it?` If confirmed:
-  - macOS: install via `brew install --cask docker`, then `open -a Docker` and wait for it to start. If brew not available, direct to Docker Desktop download at https://docker.com/products/docker-desktop
+  - macOS: try `brew install --cask docker` first. If brew is not available or requires sudo, tell the user: "Homebrew is either not installed or requires admin access. Please download and install Docker Desktop manually from https://docker.com/products/docker-desktop, then re-run setup." Wait for confirmation before continuing. After install: `open -a Docker` and wait for it to start.
   - Linux: install with `curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER`. Note: user may need to log out/in for group membership.
 
 ### 3b. Apple Container conversion gate (if needed)
@@ -80,13 +81,33 @@ If HAS_ENV=true from step 2, read `.env` and check for `CLAUDE_CODE_OAUTH_TOKEN`
 
 AskUserQuestion: Claude subscription (Pro/Max) vs Anthropic API key?
 
-**Subscription:** First ensure the Claude CLI is installed: `npm install -g @anthropic-ai/claude-code`. Then tell the user to run `claude auth login` in another terminal to authenticate via their browser. Once authenticated, extract the OAuth token:
-- macOS: `security find-generic-password -s "Claude Code-credentials" -w`
-- Linux/other: check `~/.claude/.credentials.json`
+**API key (recommended — simplest and most portable):** If the user provides the key directly, write it to `.env` yourself (`ANTHROPIC_API_KEY=<key>`). Otherwise tell user to add `ANTHROPIC_API_KEY=<key>` to `.env`.
+
+**Subscription (OAuth token):**
+
+First check if the `claude` CLI is available:
+
+```bash
+command -v claude >/dev/null 2>&1 && echo "CLI_FOUND" || echo "CLI_NOT_FOUND"
+```
+
+**If CLI_NOT_FOUND:** The user may have Claude Code installed only as an IDE extension (VS Code, JetBrains), which does not add the CLI to PATH. Install the CLI globally:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+Then verify: `command -v claude`. If it still fails (permission issue), try `sudo npm install -g @anthropic-ai/claude-code` or suggest the user use an API key instead.
+
+**Once CLI is available:** Tell the user to run `claude auth login` in another terminal to authenticate via their browser. Wait for them to confirm completion.
+
+**Extract the OAuth token:**
+- macOS: `security find-generic-password -s "Claude Code-credentials" -w` (note: the service name has a space — "Claude Code-credentials", not "ClaudeCode-credentials")
+- Linux/other: `cat ~/.claude/.credentials.json | node -e "process.stdin.on('data',d=>{const c=JSON.parse(d);console.log(c.claudeAiOauth?.accessToken||'NOT_FOUND')})"`
+
+If extraction fails, tell the user: "The easiest alternative is to use an Anthropic API key instead. You can get one at console.anthropic.com."
 
 Tell user to add `CLAUDE_CODE_OAUTH_TOKEN=<token>` to `.env`. Do NOT collect the token in chat.
-
-**API key:** If the user provides the key directly, write it to `.env` yourself (`ANTHROPIC_API_KEY=<key>`). Otherwise tell user to add `ANTHROPIC_API_KEY=<key>` to `.env`.
 
 ## 5. WhatsApp Authentication
 
@@ -204,13 +225,32 @@ npx tsx setup/index.ts --step solana -- --signing standard --key-source generate
 
 ## 11. Start Service
 
+**Pre-flight: Validate `.env` before starting.** Check that required credentials exist:
+
+```bash
+npx tsx -e '
+import fs from "fs";
+const env = fs.existsSync(".env") ? fs.readFileSync(".env", "utf-8") : "";
+const lines = env.split("\n");
+const has = (k: string) => lines.some(l => l.startsWith(k + "=") && l.length > k.length + 1);
+const claude = has("CLAUDE_CODE_OAUTH_TOKEN") || has("ANTHROPIC_API_KEY");
+const tg = has("TELEGRAM_BOT_TOKEN");
+console.log("CLAUDE_AUTH=" + claude);
+console.log("TELEGRAM_TOKEN=" + tg);
+if (claude === false) console.log("MISSING: Claude credentials (step 4)");
+if (tg === false) console.log("WARN: No Telegram bot token (may be WhatsApp-only)");
+'
+```
+
+If CLAUDE_AUTH=false, go back to step 4 — the service will fail without credentials. Do not proceed.
+
 If service already running: unload first.
 - macOS: `launchctl unload ~/Library/LaunchAgents/com.solclaw.plist` (or the upstream project's original launchd plist if applicable)
 - Linux: `systemctl --user stop solclaw` (or `systemctl stop solclaw` if root)
 
 Run `npx tsx setup/index.ts --step service` and parse the status block.
 
-**If FALLBACK=wsl_no_systemd:** WSL without systemd detected. Tell user they can either enable systemd in WSL (`echo -e "[boot]\nsystemd=true" | sudo tee /etc/wsl.conf` then restart WSL) or use the generated `start-nanoclaw.sh` wrapper.
+**If FALLBACK=wsl_no_systemd:** WSL without systemd detected. Tell user they can either enable systemd in WSL (`echo -e "[boot]\nsystemd=true" | sudo tee /etc/wsl.conf` then restart WSL) or use the generated `start-solclaw.sh` wrapper.
 
 **If DOCKER_GROUP_STALE=true:** The user was added to the docker group after their session started — the systemd service can't reach the Docker socket. Ask user to run these two commands:
 
@@ -229,7 +269,7 @@ Replace `USERNAME` with the actual username (from `whoami`). Run the two `sudo` 
 **If SERVICE_LOADED=false:**
 - Read `logs/setup.log` for the error.
 - macOS: check `launchctl list | grep solclaw`. If PID=`-` and status non-zero, read `logs/solclaw.error.log`.
-- Linux: check `systemctl --user status nanoclaw`.
+- Linux: check `systemctl --user status solclaw`.
 - Re-run the service step after fixing.
 
 ## 12. Verify

@@ -4,11 +4,74 @@ import {
   markTransactionSyncError,
 } from './db.js';
 import { logger } from './logger.js';
+import type { TransactionRecord } from './types.js';
 
 const TRANSACTION_SYNC_API_URL = process.env.TRANSACTION_SYNC_API_URL || 'https://api.breeze.baby/agent/stats-sync-up';
-const TRANSACTION_SYNC_INTERVAL = parseInt(process.env.TRANSACTION_SYNC_INTERVAL || '3600000', 10);
+const TRANSACTION_SYNC_INTERVAL = parseInt(process.env.TRANSACTION_SYNC_INTERVAL || '300000', 10);
+const TRANSACTION_SYNC_RETRY_DELAY = parseInt(process.env.TRANSACTION_SYNC_RETRY_DELAY || '30000', 10);
+const TRANSACTION_SYNC_REQUEST_TIMEOUT = parseInt(process.env.TRANSACTION_SYNC_REQUEST_TIMEOUT || '30000', 10);
+const TRANSACTION_SYNC_BATCH_SIZE = parseInt(process.env.TRANSACTION_SYNC_BATCH_SIZE || '100', 10);
 
 let syncRunning = false;
+
+interface TransactionSyncEntry {
+  signature: string;
+  protocol: string;
+  wallet_address: string;
+  mint?: string;
+  amount?: number;
+}
+
+function safeError(message: string, err: unknown, extra: Record<string, unknown> = {}): void {
+  try {
+    logger.error({ ...extra, err }, message);
+  } catch {
+    // Never let logging kill the sync loop.
+  }
+}
+
+function toTransactionEntry(record: TransactionRecord): TransactionSyncEntry {
+  const entry: TransactionSyncEntry = {
+    signature: record.signature,
+    protocol: record.protocol,
+    wallet_address: record.wallet_address,
+  };
+
+  if (record.mint) {
+    entry.mint = record.mint;
+  }
+
+  if (record.amount !== null) {
+    const amount = Number.parseFloat(record.amount);
+    if (!Number.isFinite(amount)) {
+      throw new Error(`Invalid transaction amount "${record.amount}" for ${record.signature}`);
+    }
+    entry.amount = amount;
+  }
+
+  return entry;
+}
+
+async function postTransactionEntries(entries: TransactionSyncEntry[]): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TRANSACTION_SYNC_REQUEST_TIMEOUT);
+
+  try {
+    const response = await fetch(TRANSACTION_SYNC_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transaction_entries: entries }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`API returned ${response.status}: ${errorText}`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export function startTransactionSyncLoop(): void {
   if (syncRunning) {
@@ -19,71 +82,90 @@ export function startTransactionSyncLoop(): void {
   logger.info('Transaction sync loop started');
 
   const loop = async () => {
-    try {
-      if (!TRANSACTION_SYNC_API_URL) {
-        // No API configured — skip sync, records accumulate locally
-        setTimeout(loop, TRANSACTION_SYNC_INTERVAL);
-        return;
-      }
+    let nextDelay = TRANSACTION_SYNC_INTERVAL;
 
-      const records = getUnsyncedTransactions();
+    try {
+      const records = getUnsyncedTransactions(TRANSACTION_SYNC_BATCH_SIZE);
       if (records.length === 0) {
-        setTimeout(loop, TRANSACTION_SYNC_INTERVAL);
         return;
       }
 
       logger.info({ count: records.length }, 'Syncing transactions to API');
 
-      const ids = records.map((r) => r.id!);
+      const validRecords: TransactionRecord[] = [];
+      const transactionEntries: TransactionSyncEntry[] = [];
 
-      const transactionEntries = records.map((r) => {
-        const entry: {
-          signature: string;
-          protocol: string;
-          wallet_address: string;
-          mint?: string;
-          amount?: number;
-        } = {
-          signature: r.signature,
-          protocol: r.protocol,
-          wallet_address: r.wallet_address,
-        };
-        if (r.mint) entry.mint = r.mint;
-        if (r.amount) entry.amount = parseFloat(r.amount);
-        return entry;
-      });
+      for (const record of records) {
+        try {
+          transactionEntries.push(toTransactionEntry(record));
+          validRecords.push(record);
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          if (record.id !== undefined) {
+            markTransactionSyncError([record.id], errorMsg);
+          }
+          safeError('Skipping invalid transaction during sync', err, { signature: record.signature });
+        }
+      }
+
+      if (validRecords.length === 0) {
+        nextDelay = TRANSACTION_SYNC_RETRY_DELAY;
+        return;
+      }
+
+      const validIds = validRecords
+        .map((record) => record.id)
+        .filter((id): id is number => id !== undefined);
 
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        await postTransactionEntries(transactionEntries);
+        markTransactionsSynced(validIds);
+        logger.info({ count: validIds.length }, 'Transactions synced successfully');
+        if (records.length === TRANSACTION_SYNC_BATCH_SIZE) {
+          nextDelay = 1000;
+        }
+      } catch (batchErr) {
+        const batchErrorMsg = batchErr instanceof Error ? batchErr.message : String(batchErr);
+        logger.warn({ error: batchErrorMsg, count: validIds.length }, 'Batch transaction sync failed, retrying records individually');
 
-        const response = await fetch(TRANSACTION_SYNC_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transaction_entries: transactionEntries }),
-          signal: controller.signal,
-        });
+        let failedCount = 0;
 
-        clearTimeout(timeout);
+        for (const record of validRecords) {
+          const recordId = record.id;
+          if (recordId === undefined) {
+            continue;
+          }
 
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
-          throw new Error(`API returned ${response.status}: ${errorText}`);
+          try {
+            await postTransactionEntries([toTransactionEntry(record)]);
+            markTransactionsSynced([recordId]);
+          } catch (recordErr) {
+            failedCount += 1;
+            const errorMsg = recordErr instanceof Error ? recordErr.message : String(recordErr);
+            markTransactionSyncError([recordId], errorMsg);
+            safeError('Transaction sync failed for record', recordErr, {
+              signature: record.signature,
+              id: recordId,
+            });
+          }
         }
 
-        markTransactionsSynced(ids);
-        logger.info({ count: ids.length }, 'Transactions synced successfully');
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        markTransactionSyncError(ids, errorMsg);
-        logger.error({ error: errorMsg, count: ids.length }, 'Transaction sync failed');
+        if (failedCount === 0) {
+          logger.info({ count: validIds.length }, 'Transactions synced successfully after per-record retry');
+          if (records.length === TRANSACTION_SYNC_BATCH_SIZE) {
+            nextDelay = 1000;
+          }
+        } else {
+          nextDelay = TRANSACTION_SYNC_RETRY_DELAY;
+        }
       }
     } catch (err) {
-      logger.error({ err }, 'Error in transaction sync loop');
+      nextDelay = TRANSACTION_SYNC_RETRY_DELAY;
+      safeError('Error in transaction sync loop', err);
+    } finally {
+      setTimeout(loop, nextDelay);
     }
-
-    setTimeout(loop, TRANSACTION_SYNC_INTERVAL);
   };
 
-  loop();
+  void loop();
 }

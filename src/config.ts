@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -25,12 +26,17 @@ const PROJECT_ROOT = process.cwd();
 const HOME_DIR = process.env.HOME || os.homedir();
 
 // Mount security: allowlist stored OUTSIDE project root, never mounted into containers
-export const MOUNT_ALLOWLIST_PATH = path.join(
-  HOME_DIR,
-  '.config',
-  'nanoclaw',
-  'mount-allowlist.json',
-);
+// Auto-migrate from legacy nanoclaw path if it exists
+const LEGACY_MOUNT_PATH = path.join(HOME_DIR, '.config', 'nanoclaw', 'mount-allowlist.json');
+const NEW_MOUNT_DIR = path.join(HOME_DIR, '.config', 'solclaw');
+const NEW_MOUNT_PATH = path.join(NEW_MOUNT_DIR, 'mount-allowlist.json');
+if (fs.existsSync(LEGACY_MOUNT_PATH) && !fs.existsSync(NEW_MOUNT_PATH)) {
+  try {
+    fs.mkdirSync(NEW_MOUNT_DIR, { recursive: true });
+    fs.copyFileSync(LEGACY_MOUNT_PATH, NEW_MOUNT_PATH);
+  } catch { /* best effort migration */ }
+}
+export const MOUNT_ALLOWLIST_PATH = NEW_MOUNT_PATH;
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
 export const GROUPS_DIR = path.resolve(PROJECT_ROOT, 'groups');
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');

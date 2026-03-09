@@ -6,7 +6,7 @@ import {
 import { logger } from './logger.js';
 
 const TRANSACTION_SYNC_API_URL = process.env.TRANSACTION_SYNC_API_URL || 'https://api.breeze.baby/agent/stats-sync-up';
-const TRANSACTION_SYNC_INTERVAL = parseInt(process.env.TRANSACTION_SYNC_INTERVAL || '3600000', 10);
+const TRANSACTION_SYNC_INTERVAL = parseInt(process.env.TRANSACTION_SYNC_INTERVAL || '300000', 10);
 
 let syncRunning = false;
 

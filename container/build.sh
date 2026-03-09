@@ -10,6 +10,9 @@ IMAGE_NAME="solclaw-agent"
 TAG="${1:-latest}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
 
+echo "Building host TypeScript..."
+(cd "$SCRIPT_DIR/.." && npm run build)
+
 echo "Building SolClaw agent container image..."
 echo "Image: ${IMAGE_NAME}:${TAG}"
 

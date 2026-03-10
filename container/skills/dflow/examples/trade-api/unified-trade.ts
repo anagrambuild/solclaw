@@ -16,6 +16,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const API_BASE = "https://quote-api.dflow.net";
@@ -195,6 +196,7 @@ async function trade(
     skipPreflight: false,
     maxRetries: 3,
   });
+  logTransactionIpc(signature, 'dflow', keypair.publicKey.toBase58(), outputMint, amount);
 
   console.log(`  Signature: ${signature}`);
 

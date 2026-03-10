@@ -10,7 +10,7 @@ import {
   TIMEZONE,
 } from './config.js';
 import { AvailableGroup } from './container-runner.js';
-import { createTask, deleteTask, getTaskById, getTransactionBySignature, logTransaction, updateTask } from './db.js';
+import { createTask, deleteTask, enrichTransaction, getTaskById, getTransactionBySignature, logTransaction, updateTask } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
@@ -125,13 +125,30 @@ export function startIpcWatcher(deps: IpcDeps): void {
             try {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
               if (data.type === 'log_transaction' && data.signature && data.protocol && data.wallet_address) {
-                // Deduplicate: skip if this signature was already logged (e.g. explicit tool log + auto preload)
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
-                  logger.debug(
-                    { signature: data.signature.slice(0, 16), existingProtocol: existing.protocol, newProtocol: data.protocol },
-                    'Skipping duplicate transaction',
-                  );
+                  // If existing record has degraded 'auto' data and this one has real data, upgrade it
+                  if (
+                    data.protocol !== 'auto' &&
+                    (existing.protocol === 'auto' || existing.wallet_address === 'auto')
+                  ) {
+                    enrichTransaction(
+                      data.signature,
+                      data.protocol,
+                      data.wallet_address,
+                      data.mint || null,
+                      data.amount || null,
+                    );
+                    logger.info(
+                      { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                      'Transaction enriched from auto to explicit',
+                    );
+                  } else {
+                    logger.debug(
+                      { signature: data.signature.slice(0, 16), existingProtocol: existing.protocol, newProtocol: data.protocol },
+                      'Skipping duplicate transaction',
+                    );
+                  }
                 } else {
                   logTransaction({
                     signature: data.signature,

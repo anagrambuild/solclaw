@@ -11,6 +11,7 @@ import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@sola
 import { BN } from '@coral-xyz/anchor';
 import { DynamicBondingCurve } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { NATIVE_MINT } from '@solana/spl-token';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
@@ -72,6 +73,7 @@ async function launchToken() {
   console.log('\nToken launched successfully!');
   console.log('Transaction:', txHash);
   console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), tokenMint.publicKey.toString());
 
   // 7. Fetch pool state
   // Note: You would need to derive the pool address from the transaction

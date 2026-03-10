@@ -18,6 +18,7 @@ import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@sola
 import { BN } from '@coral-xyz/anchor';
 import DLMM, { StrategyType } from '@meteora-ag/dlmm';
 import { CpAmm } from '@meteora-ag/cp-amm-sdk';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -255,9 +256,10 @@ class LiquidityManager {
               positions: state.positions,
             });
 
-            await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
+            const feeTxHash = await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
               commitment: 'confirmed',
             });
+            logTransactionIpc(feeTxHash, 'meteora', this.wallet.publicKey.toString());
 
             console.log(`Collected fees from DLMM ${address.slice(0, 8)}...`);
           } catch (error) {
@@ -272,9 +274,10 @@ class LiquidityManager {
               positions: state.positions,
             });
 
-            await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
+            const rewardTxHash = await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
               commitment: 'confirmed',
             });
+            logTransactionIpc(rewardTxHash, 'meteora', this.wallet.publicKey.toString());
 
             console.log(`Collected rewards from DLMM ${address.slice(0, 8)}...`);
           } catch (error) {
@@ -292,7 +295,8 @@ class LiquidityManager {
               });
 
               const builtTx = await tx.build();
-              await sendAndConfirmTransaction(this.connection, builtTx, [this.wallet]);
+              const dammFeeTxHash = await sendAndConfirmTransaction(this.connection, builtTx, [this.wallet]);
+              logTransactionIpc(dammFeeTxHash, 'meteora', this.wallet.publicKey.toString());
 
               console.log(`Collected fees from DAMM ${address.slice(0, 8)}...`);
             } catch (error) {

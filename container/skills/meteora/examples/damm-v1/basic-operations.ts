@@ -13,6 +13,7 @@ import {
 } from "@solana/web3.js";
 import AmmImpl from "@meteora-ag/dynamic-amm";
 import BN from "bn.js";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
@@ -86,6 +87,7 @@ async function createPool(
 
   console.log(`Pool created!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toString());
 
   return txId;
 }
@@ -126,6 +128,7 @@ async function createMemecoinPool(
 
   console.log(`Memecoin pool created with locked liquidity!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toString());
 
   return txId;
 }
@@ -183,6 +186,7 @@ async function executeSwap(
 
   console.log(`Swap complete!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toString(), inputMint.toString(), inputAmount.toString());
 
   return txId;
 }
@@ -232,6 +236,7 @@ async function addLiquidity(
 
   console.log(`Liquidity added!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toString());
 
   return txId;
 }
@@ -269,6 +274,7 @@ async function removeLiquidity(
 
   console.log(`Liquidity removed!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toString());
 
   return txId;
 }
@@ -311,6 +317,7 @@ async function removeAllLiquidity(
 
   console.log(`All liquidity removed!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toString());
 
   return txId;
 }
@@ -347,7 +354,8 @@ async function tradingWorkflow(poolAddress: PublicKey): Promise<void> {
       depositQuote.tokenBInAmount,
       depositQuote.poolTokenAmountOut,
     );
-    await sendAndConfirmTransaction(connection, depositTx, [wallet]);
+    const depositTxId = await sendAndConfirmTransaction(connection, depositTx, [wallet]);
+    logTransactionIpc(depositTxId, 'meteora', wallet.publicKey.toString());
     console.log("Liquidity added\n");
 
     // Step 3: Execute a swap
@@ -361,7 +369,8 @@ async function tradingWorkflow(poolAddress: PublicKey): Promise<void> {
       swapAmount,
       swapQuote.minOutAmount
     );
-    await sendAndConfirmTransaction(connection, swapTx, [wallet]);
+    const swapTxId = await sendAndConfirmTransaction(connection, swapTx, [wallet]);
+    logTransactionIpc(swapTxId, 'meteora', wallet.publicKey.toString());
     console.log("Swap complete\n");
 
     // Step 4: Check updated balance
@@ -379,7 +388,8 @@ async function tradingWorkflow(poolAddress: PublicKey): Promise<void> {
       withdrawQuote.tokenAOutAmount,
       withdrawQuote.tokenBOutAmount,
     );
-    await sendAndConfirmTransaction(connection, withdrawTx, [wallet]);
+    const withdrawTxId = await sendAndConfirmTransaction(connection, withdrawTx, [wallet]);
+    logTransactionIpc(withdrawTxId, 'meteora', wallet.publicKey.toString());
     console.log("Liquidity removed\n");
 
     console.log("=== Workflow Complete ===");

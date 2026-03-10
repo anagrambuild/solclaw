@@ -10,6 +10,7 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { CpAmm } from '@meteora-ag/cp-amm-sdk';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
@@ -47,6 +48,7 @@ async function managePosition() {
 
   console.log('Position created:', positionKeypair.publicKey.toString());
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   // 5. Get deposit quote
   const tokenAAmount = new BN(100_000_000); // 100 tokens
@@ -84,6 +86,7 @@ async function managePosition() {
 
   console.log('Liquidity added!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   // 7. Fetch position state
   const positionState = await cpAmm.fetchPositionState(positionKeypair.publicKey);
@@ -107,6 +110,7 @@ async function managePosition() {
     tx = await claimFeeTx.build();
     txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
     console.log('Fees claimed:', txHash);
+    logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
   }
 
   // 9. Remove partial liquidity
@@ -136,6 +140,7 @@ async function managePosition() {
   tx = await removeLiquidityTx.build();
   txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
   console.log('Liquidity removed:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Split position
@@ -172,6 +177,7 @@ async function splitPosition() {
   const tx = await splitTx.build();
   const txHash = await sendAndConfirmTransaction(connection, tx, [wallet, newPositionKeypair]);
   console.log('Position split:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Merge positions
@@ -205,6 +211,7 @@ async function mergePositions() {
   const tx = await mergeTx.build();
   const txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
   console.log('Positions merged:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Lock position with vesting
@@ -237,6 +244,7 @@ async function lockPosition() {
   const tx = await lockTx.build();
   const txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
   console.log('Position locked:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
   console.log('Cliff ends:', new Date(Date.now() + 7 * 86400 * 1000).toISOString());
   console.log('Fully vested:', new Date(Date.now() + 30 * 86400 * 1000).toISOString());
 }

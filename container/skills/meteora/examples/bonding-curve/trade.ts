@@ -10,6 +10,7 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { DynamicBondingCurve } from '@meteora-ag/dynamic-bonding-curve-sdk';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
@@ -80,6 +81,7 @@ async function buyTokens() {
   console.log('Buy successful!');
   console.log('Transaction:', txHash);
   console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, quoteAmount.toString());
 
   // 7. Check new pool state
   const newPoolState = await dbc.fetchPoolState(POOL_ADDRESS);
@@ -143,6 +145,7 @@ async function sellTokens() {
 
   console.log('Sell successful!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, baseAmount.toString());
 }
 
 // Analyze bonding curve

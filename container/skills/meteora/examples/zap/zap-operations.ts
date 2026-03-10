@@ -15,6 +15,7 @@ import { Zap } from "@meteora-ag/zap-sdk";
 import DLMM from "@meteora-ag/dlmm";
 import { CpAmm } from "@meteora-ag/cp-amm-sdk";
 import BN from "bn.js";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
@@ -82,6 +83,7 @@ async function zapInToDlmm(
   console.log(`Zap complete!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
   console.log(`Position: ${positionKeypair.publicKey.toBase58()}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toBase58(), SOL_MINT.toBase58(), solAmount.toString());
 
   return txId;
 }
@@ -110,9 +112,10 @@ async function zapInToDammV2(
     pool: poolAddress,
   });
 
-  await sendAndConfirmTransaction(connection, createPositionTx.transaction, [
+  const createPosTxId = await sendAndConfirmTransaction(connection, createPositionTx.transaction, [
     wallet,
   ]);
+  logTransactionIpc(createPosTxId, 'meteora', wallet.publicKey.toBase58());
 
   const positionAddress = createPositionTx.positionAddress;
 
@@ -131,6 +134,7 @@ async function zapInToDammV2(
   console.log(`Zap complete!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
   console.log(`Position: ${positionAddress.toBase58()}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toBase58(), USDC_MINT.toBase58(), usdcAmount.toString());
 
   return txId;
 }
@@ -162,6 +166,7 @@ async function zapOutFromDlmm(
 
   console.log(`Zap out complete!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toBase58());
 
   return txId;
 }
@@ -193,6 +198,7 @@ async function zapOutFromDammV2(
 
   console.log(`Zap out complete!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toBase58());
 
   return txId;
 }
@@ -244,6 +250,7 @@ async function zapOutViaJupiter(
 
   console.log(`Zap out complete!`);
   console.log(`Transaction: https://solscan.io/tx/${txId}`);
+  logTransactionIpc(txId, 'meteora', wallet.publicKey.toBase58(), inputMint.toBase58(), amount.toString());
 
   return txId;
 }
@@ -275,11 +282,12 @@ async function completeZapWorkflow(dlmmPoolAddress: PublicKey): Promise<void> {
       maxBinId: activeBin.binId + 5,
     });
 
-    await sendAndConfirmTransaction(connection, zapInTx, [
+    const zapInTxId = await sendAndConfirmTransaction(connection, zapInTx, [
       wallet,
       positionKeypair,
     ]);
     console.log(`Position created: ${positionKeypair.publicKey.toBase58()}\n`);
+    logTransactionIpc(zapInTxId, 'meteora', wallet.publicKey.toBase58(), SOL_MINT.toBase58(), solAmount.toString());
 
     // Step 2: Wait briefly
     console.log("Step 2: Waiting for position to accrue fees...\n");
@@ -296,8 +304,9 @@ async function completeZapWorkflow(dlmmPoolAddress: PublicKey): Promise<void> {
       slippageBps: 100,
     });
 
-    await sendAndConfirmTransaction(connection, zapOut50Tx, [wallet]);
+    const zapOut50TxId = await sendAndConfirmTransaction(connection, zapOut50Tx, [wallet]);
     console.log("Zapped out 50% to USDC\n");
+    logTransactionIpc(zapOut50TxId, 'meteora', wallet.publicKey.toBase58());
 
     // Step 4: Zap out remaining to SOL
     console.log("Step 4: Zapping out remaining 100% to SOL...\n");
@@ -310,8 +319,9 @@ async function completeZapWorkflow(dlmmPoolAddress: PublicKey): Promise<void> {
       slippageBps: 100,
     });
 
-    await sendAndConfirmTransaction(connection, zapOutRemainingTx, [wallet]);
+    const zapOutRemainingTxId = await sendAndConfirmTransaction(connection, zapOutRemainingTx, [wallet]);
     console.log("Position fully closed\n");
+    logTransactionIpc(zapOutRemainingTxId, 'meteora', wallet.publicKey.toBase58());
 
     console.log("=== Workflow Complete ===");
   } catch (error) {

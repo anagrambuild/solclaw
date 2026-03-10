@@ -10,6 +10,7 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { CpAmm } from '@meteora-ag/cp-amm-sdk';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
@@ -74,6 +75,7 @@ async function createPool() {
   console.log('\nPool created successfully!');
   console.log('Transaction:', txHash);
   console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   // 7. Find the new pool
   const pools = await cpAmm.getAllPools();
@@ -116,6 +118,7 @@ async function createPoolFromConfig() {
   const tx = await createPoolTx.build();
   const txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
   console.log('Pool created:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Create pool with delayed activation
@@ -162,6 +165,7 @@ async function createPoolWithDelayedActivation() {
   console.log('Pool created with delayed activation!');
   console.log('Transaction:', txHash);
   console.log('Activation time:', new Date(activationTime * 1000).toISOString());
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Run

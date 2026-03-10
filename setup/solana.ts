@@ -55,10 +55,26 @@ export async function run(args: string[]): Promise<void> {
     const privateKey = bs58.encode(keypair.secretKey);
     const publicKey = keypair.publicKey.toBase58();
 
-    console.log(chalk.green('\n✓ New keypair generated!'));
-    console.log(chalk.yellow('\n⚠️  SAVE THIS PRIVATE KEY - You will not see it again!\n'));
-    console.log(chalk.white(`Public Key:  ${chalk.cyan(publicKey)}`));
-    console.log(chalk.white(`Private Key: ${chalk.cyan(privateKey)}\n`));
+    console.log(chalk.green('\n✓ New keypair generated!\n'));
+
+    console.log(chalk.red.bold('╔══════════════════════════════════════════════════════════════════╗'));
+    console.log(chalk.red.bold('║                                                                  ║'));
+    console.log(chalk.red.bold('║   SAVE YOUR PRIVATE KEY NOW — YOU WILL NOT SEE IT AGAIN          ║'));
+    console.log(chalk.red.bold('║                                                                  ║'));
+    console.log(chalk.red.bold('╚══════════════════════════════════════════════════════════════════╝'));
+
+    console.log('');
+    console.log(chalk.white.bold('  Public Key'));
+    console.log(chalk.cyan(`  ${publicKey}`));
+    console.log('');
+    console.log(chalk.white.bold('  Private Key'));
+    console.log(chalk.yellow(`  ${privateKey}`));
+    console.log('');
+    console.log(chalk.gray('  Copy your private key and store it somewhere safe (password'));
+    console.log(chalk.gray('  manager, encrypted note, etc). This is the ONLY time it will'));
+    console.log(chalk.gray('  be displayed. If you lose it, the wallet and any funds in'));
+    console.log(chalk.gray('  it are gone forever.'));
+    console.log('');
 
     // Step 2: RPC Configuration
     console.log(chalk.yellow('Step 2: RPC Configuration'));
@@ -194,21 +210,30 @@ export async function run(args: string[]): Promise<void> {
 
     // Summary with QR code
     console.log(chalk.green.bold('\n✅ Solana Configuration Complete!\n'));
-    console.log(chalk.white('Configuration saved to:'));
-    console.log(chalk.cyan(`  ${configPath}`));
-    console.log(chalk.cyan(`  ${envPath}\n`));
 
-    console.log(chalk.white(`Network: ${chalk.cyan(rpcUrl)}\n`));
+    console.log(chalk.white.bold('  Wallet Summary'));
+    console.log(chalk.white(`  Address:         ${chalk.cyan(publicKey)}`));
+    console.log(chalk.white(`  Signing Method:  ${chalk.cyan('Standard (local keypair)')}`));
+    console.log(chalk.white(`  Network:         ${chalk.cyan(rpcUrl)}`));
+    console.log('');
 
-    console.log(chalk.white('Your agent can now:'));
+    console.log(chalk.white.bold('  Config Files'));
+    console.log(chalk.gray(`  ${configPath}`));
+    console.log(chalk.gray(`  ${envPath}`));
+    console.log('');
+
+    console.log(chalk.white.bold('  Capabilities'));
     console.log(chalk.cyan('  • Check wallet balances'));
     console.log(chalk.cyan('  • Get token prices via Jupiter'));
     console.log(chalk.cyan('  • Swap tokens via Jupiter Ultra'));
     console.log(chalk.cyan('  • Transfer SOL and SPL tokens'));
-    console.log(chalk.cyan('  • Access DeFi protocols via skills\n'));
+    console.log(chalk.cyan('  • Access DeFi protocols via skills'));
+    console.log('');
 
-    console.log(chalk.white.bold('Wallet Address (scan to fund):'));
+    console.log(chalk.white.bold('  Fund Your Wallet (scan QR or send SOL to address):'));
     await displayWalletQR(publicKey);
+
+    console.log(chalk.yellow('  Send SOL to this address to start trading.\n'));
 
     emitStatus('SOLANA_SETUP', {
       STATUS: 'complete',

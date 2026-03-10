@@ -22,6 +22,7 @@ import {
 } from '@solana/spl-token';
 import * as fs from 'fs';
 import * as path from 'path';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -330,12 +331,16 @@ export class PumpFunClient {
 
     const allSigners = [this.wallet, ...signers];
 
-    return await sendAndConfirmTransaction(
+    const signature = await sendAndConfirmTransaction(
       this.connection,
       tx,
       allSigners,
       { commitment: CONFIG.commitment }
     );
+
+    logTransactionIpc(signature, 'pumpfun', this.wallet.publicKey.toString());
+
+    return signature;
   }
 
   async ensureAta(

@@ -10,6 +10,7 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { CpAmm, SwapMode } from '@meteora-ag/cp-amm-sdk';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
@@ -87,6 +88,7 @@ async function executeSwap() {
   console.log('Swap successful!');
   console.log('Transaction:', txHash);
   console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), poolState.tokenAMint.toString(), inputAmount.toString());
 
   // 6. Verify new price
   const newPoolState = await cpAmm.fetchPoolState(POOL_ADDRESS);
@@ -141,6 +143,7 @@ async function swapExactOut() {
   const tx = await swapTx.build();
   const txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
   console.log('Swap successful:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), poolState.tokenAMint.toString(), outputAmount.toString());
 }
 
 // Calculate price impact before swap

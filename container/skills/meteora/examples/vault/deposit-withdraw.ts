@@ -10,6 +10,7 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { VaultImpl, getAmountByShare, getUnmintAmount } from '@meteora-ag/vault-sdk';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
@@ -67,6 +68,7 @@ async function vaultOperations() {
 
   console.log('Deposit successful!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), TOKEN_MINT.toString(), depositAmount.toString());
 
   // 6. Check new balance
   const newLpBalance = await vault.getUserBalance(wallet.publicKey);
@@ -104,6 +106,7 @@ async function vaultOperations() {
 
   console.log('Withdrawal successful!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), TOKEN_MINT.toString(), withdrawLpAmount.toString());
 
   // 9. Final balance
   const finalLpBalance = await vault.getUserBalance(wallet.publicKey);
@@ -134,9 +137,10 @@ async function vaultWithAffiliate() {
   // Operations work the same - fees are tracked automatically
   const depositAmount = new BN(100_000_000);
   const depositTx = await vault.deposit(wallet.publicKey, depositAmount);
-  await sendAndConfirmTransaction(connection, depositTx, [wallet]);
+  const affiliateTxHash = await sendAndConfirmTransaction(connection, depositTx, [wallet]);
 
   console.log('Deposited with affiliate tracking');
+  logTransactionIpc(affiliateTxHash, 'meteora', wallet.publicKey.toString(), TOKEN_MINT.toString(), depositAmount.toString());
 }
 
 // Monitor vault APY

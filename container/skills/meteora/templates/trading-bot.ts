@@ -16,6 +16,7 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import DLMM, { StrategyType } from '@meteora-ag/dlmm';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // =============================================================================
 // CONFIGURATION - Customize these values
@@ -135,6 +136,7 @@ class MeteoraMarketMaker {
     );
 
     console.log('Position created:', txHash);
+    logTransactionIpc(txHash, 'meteora', this.wallet.publicKey.toString());
     this.currentPosition = positionKeypair.publicKey;
   }
 
@@ -164,9 +166,10 @@ class MeteoraMarketMaker {
         shouldClaimAndClose: false,
       });
 
-      await sendAndConfirmTransaction(this.connection, removeTx, [this.wallet], {
+      const removeTxHash = await sendAndConfirmTransaction(this.connection, removeTx, [this.wallet], {
         commitment: 'confirmed',
       });
+      logTransactionIpc(removeTxHash, 'meteora', this.wallet.publicKey.toString());
     }
 
     // 2. Add liquidity at new range
@@ -189,6 +192,7 @@ class MeteoraMarketMaker {
     });
 
     console.log('Rebalanced:', txHash);
+    logTransactionIpc(txHash, 'meteora', this.wallet.publicKey.toString());
   }
 
   async collectFees(): Promise<void> {
@@ -210,9 +214,10 @@ class MeteoraMarketMaker {
         position: this.currentPosition,
       });
 
-      await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
+      const feeTxHash = await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
         commitment: 'confirmed',
       });
+      logTransactionIpc(feeTxHash, 'meteora', this.wallet.publicKey.toString());
 
       console.log('Fees collected');
     }
@@ -223,14 +228,15 @@ class MeteoraMarketMaker {
     if (rewards.rewardOne.gt(new BN(0)) || rewards.rewardTwo.gt(new BN(0))) {
       console.log('Collecting rewards...');
 
-      const tx = await this.dlmm.claimLMReward({
+      const rewardTx = await this.dlmm.claimLMReward({
         owner: this.wallet.publicKey,
         position: this.currentPosition,
       });
 
-      await sendAndConfirmTransaction(this.connection, tx, [this.wallet], {
+      const rewardTxHash = await sendAndConfirmTransaction(this.connection, rewardTx, [this.wallet], {
         commitment: 'confirmed',
       });
+      logTransactionIpc(rewardTxHash, 'meteora', this.wallet.publicKey.toString());
 
       console.log('Rewards collected');
     }

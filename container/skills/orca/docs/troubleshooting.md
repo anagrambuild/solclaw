@@ -168,6 +168,125 @@ const swapAmount = balance - txFee - 10000n; // Leave buffer
 
 ## Position Errors
 
+### "Cannot convert undefined to a BigInt" (in token.ts)
+
+**Problem**: Calling `openPositionInstructions` or `openConcentratedPosition` with `{ tokenA: bigint }` param causes:
+```
+TypeError: Cannot convert undefined to a BigInt
+  at prepareTokenAccountsInstructions (token.ts:253)
+```
+
+**Root cause**: In SDK v7, the internal `getIncreaseLiquidityInstructions` destructures `param: { tokenMaxA, tokenMaxB }` directly. Passing `{ tokenA: bigint }` gives `tokenMaxA = undefined`, which then fails when calling `BigInt(undefined)`.
+
+**Solution**: Always compute the quote first and pass `{ tokenMaxA, tokenMaxB }`:
+
+```typescript
+import { increaseLiquidityQuoteA } from "@orca-so/whirlpools-core";
+
+// Compute quote from desired tokenA amount
+const quote = increaseLiquidityQuoteA(
+  solLamports,        // e.g. 10_000_000n for 0.01 SOL
+  slippageBps,        // e.g. 100 for 1%
+  pool.sqrtPrice,
+  lowerTick,
+  upperTick,
+);
+// Use the quote output as the param
+const param = { tokenMaxA: quote.tokenMaxA, tokenMaxB: quote.tokenMaxB };
+const result = await openConcentratedPosition(poolAddress, param, lowerPrice, upperPrice, slippageBps);
+```
+
+---
+
+### `Custom 1` (SPL Token InsufficientFunds) in `IncreaseLiquidityByTokenAmountsV2`
+
+**Problem**: Transaction simulation fails with `{"InstructionError": [N, {"Custom": "1"}]}` where instruction N is `IncreaseLiquidityByTokenAmountsV2`.
+
+**Root cause — `setNativeMintWrappingStrategy("ata")` bug**: When strategy is `"ata"` and SOL is tokenA, the SDK filters wSOL out of the mints array but then uses `tokenAccounts[nativeMintIndex]` where the index refers to the *unfiltered* position. This makes it read the **USDC account balance** instead of the wSOL balance. It then transfers `tokenMaxA - usdcBalance` lamports instead of `tokenMaxA`, leaving the wSOL account short → InsufficientFunds on `IncreaseLiquidity`.
+
+**Solution**: Do NOT call `setNativeMintWrappingStrategy("ata")`. Use the default `"keypair"` strategy:
+```typescript
+// ❌ DO NOT DO THIS for SOL/X pools
+await setNativeMintWrappingStrategy("ata");
+
+// ✅ Just don't set it — default "keypair" creates a fresh temporary account
+// The keypair account is initialized with exactly tokenMaxA wSOL and closed after
+```
+
+---
+
+### Insufficient SOL for `OpenPositionWithTokenExtensions`
+
+**Problem**: `OpenPositionWithTokenExtensions` fails mid-execution with:
+```
+Transfer: insufficient lamports XXXX, need YYYY
+```
+
+**Root cause**: The Whirlpool v2 position opening creates several Token-2022 accounts on-chain:
+- Position PDA (Whirlpool account)
+- NFT mint (Token-2022, with CloseAuthority + MetadataPointer + Metadata extensions): ~1,259,760 lamports
+- NFT token account (Token-2022 ATA): ~2,074,080 lamports
+- Other account allocations
+- **Total overhead: ~10,072,200 lamports (~0.01 SOL)**
+
+The SDK's `initializationCost` incorrectly returns `0` — do not rely on it.
+
+**Additionally**, the `"keypair"` wSOL strategy creates a temporary account with `rent_exempt + tokenMaxA` lamports taken from the wallet *before* OpenPosition runs.
+
+**Budget formula**:
+```
+Required wallet SOL ≥ tokenMaxA + 10,072,200 (overhead) + 2,039,280 (keypair rent, refunded) + tx_fees
+```
+
+For a wallet with 0.019 SOL (~19,447,815 lamports):
+```
+tokenMaxA ≤ 19,447,815 − 10,072,200 − 2,039,280 − 20,000 = ~7,316,335 lamports (~0.007 SOL)
+```
+Use a safety margin: keep tokenMaxA ≤ ~0.006 SOL to be safe.
+
+**To diagnose**: Simulate with `@solana/web3.js` `Connection.simulateTransaction` (NOT kit's version) to get verbose logs:
+```typescript
+import { Connection, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+
+const connection = new Connection(rpcUrl, "confirmed");
+const { blockhash } = await connection.getLatestBlockhash();
+const msg = new TransactionMessage({ payerKey, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
+const sim = await connection.simulateTransaction(new VersionedTransaction(msg), { sigVerify: false });
+console.log("Error:", sim.value.err);
+sim.value.logs?.forEach(l => console.log(l));
+```
+
+---
+
+### Wrong token ordering (wrong decimals for price/tick calculations)
+
+**Problem**: Ticks computed with wrong decimal assumptions, position opens with incorrect price range.
+
+**Root cause**: The token ordering in a pool (`tokenMintA`, `tokenMintB`) is **not** determined by which token is "more important" — it's by mint address sort order. For SOL/USDC on Orca mainnet:
+- `tokenMintA` = SOL (`So111...1112`), 9 decimals
+- `tokenMintB` = USDC (`EPjFW...1v`), 6 decimals
+
+**Always verify ordering from pool data**:
+```typescript
+const pools = await fetchWhirlpoolsByTokenPair(rpc, SOL, USDC);
+const pool = pools[0];
+// pool.price = USDC per SOL (e.g. 85.5 means 1 SOL = $85.50)
+// tokenMintA = SOL, tokenMintB = USDC
+```
+
+Then use the correct decimals in quote/tick functions:
+```typescript
+const decimalsA = 9; // SOL (tokenMintA)
+const decimalsB = 6; // USDC (tokenMintB)
+const lowerTick = getInitializableTickIndex(priceToTickIndex(lowerPrice, decimalsA, decimalsB), tickSpacing, false);
+const upperTick = getInitializableTickIndex(priceToTickIndex(upperPrice, decimalsA, decimalsB), tickSpacing, true);
+
+// Since SOL is tokenA, use QuoteA to specify SOL input amount:
+const quote = increaseLiquidityQuoteA(solLamports, slippageBps, pool.sqrtPrice, lowerTick, upperTick);
+```
+
+---
+
 ### "InvalidTickIndex"
 
 **Problem**: Price range tick indices are invalid for the pool.

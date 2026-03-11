@@ -20,6 +20,7 @@ const TRANSACTIONS_DIR = path.join(IPC_DIR, 'transactions');
 const chatJid = process.env.NANOCLAW_CHAT_JID!;
 const groupFolder = process.env.NANOCLAW_GROUP_FOLDER!;
 const isMain = process.env.NANOCLAW_IS_MAIN === '1';
+const currentModel = process.env.NANOCLAW_MODEL || '';
 
 function writeIpcFile(dir: string, data: object): string {
   fs.mkdirSync(dir, { recursive: true });
@@ -45,7 +46,12 @@ server.tool(
   "Send a message to the user or group immediately while you're still running. Use this for progress updates or to send multiple messages. You can call this multiple times. Note: when running as a scheduled task, your final output is NOT sent to the user — use this tool if you need to communicate with the user or group.",
   {
     text: z.string().describe('The message text to send'),
-    sender: z.string().optional().describe('Your role/identity name (e.g. "Researcher"). When set, messages appear from a dedicated bot in Telegram.'),
+    sender: z
+      .string()
+      .optional()
+      .describe(
+        'Your role/identity name (e.g. "Researcher"). When set, messages appear from a dedicated bot in Telegram.',
+      ),
   },
   async (args) => {
     const data: Record<string, string | undefined> = {
@@ -87,11 +93,33 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
 \u2022 interval: Milliseconds between runs (e.g., "300000" for 5 minutes, "3600000" for 1 hour)
 \u2022 once: Local time WITHOUT "Z" suffix (e.g., "2026-02-01T15:30:00"). Do NOT use UTC/Z suffix.`,
   {
-    prompt: z.string().describe('What the agent should do when the task runs. For isolated mode, include all necessary context here.'),
-    schedule_type: z.enum(['cron', 'interval', 'once']).describe('cron=recurring at specific times, interval=recurring every N ms, once=run once at specific time'),
-    schedule_value: z.string().describe('cron: "*/5 * * * *" | interval: milliseconds like "300000" | once: local timestamp like "2026-02-01T15:30:00" (no Z suffix!)'),
-    context_mode: z.enum(['group', 'isolated']).default('group').describe('group=runs with chat history and memory, isolated=fresh session (include context in prompt)'),
-    target_group_jid: z.string().optional().describe('(Main group only) JID of the group to schedule the task for. Defaults to the current group.'),
+    prompt: z
+      .string()
+      .describe(
+        'What the agent should do when the task runs. For isolated mode, include all necessary context here.',
+      ),
+    schedule_type: z
+      .enum(['cron', 'interval', 'once'])
+      .describe(
+        'cron=recurring at specific times, interval=recurring every N ms, once=run once at specific time',
+      ),
+    schedule_value: z
+      .string()
+      .describe(
+        'cron: "*/5 * * * *" | interval: milliseconds like "300000" | once: local timestamp like "2026-02-01T15:30:00" (no Z suffix!)',
+      ),
+    context_mode: z
+      .enum(['group', 'isolated'])
+      .default('group')
+      .describe(
+        'group=runs with chat history and memory, isolated=fresh session (include context in prompt)',
+      ),
+    target_group_jid: z
+      .string()
+      .optional()
+      .describe(
+        '(Main group only) JID of the group to schedule the task for. Defaults to the current group.',
+      ),
   },
   async (args) => {
     // Validate schedule_value before writing IPC
@@ -100,7 +128,12 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
         CronExpressionParser.parse(args.schedule_value);
       } catch {
         return {
-          content: [{ type: 'text' as const, text: `Invalid cron: "${args.schedule_value}". Use format like "0 9 * * *" (daily 9am) or "*/5 * * * *" (every 5 min).` }],
+          content: [
+            {
+              type: 'text' as const,
+              text: `Invalid cron: "${args.schedule_value}". Use format like "0 9 * * *" (daily 9am) or "*/5 * * * *" (every 5 min).`,
+            },
+          ],
           isError: true,
         };
       }
@@ -108,28 +141,47 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
       const ms = parseInt(args.schedule_value, 10);
       if (isNaN(ms) || ms <= 0) {
         return {
-          content: [{ type: 'text' as const, text: `Invalid interval: "${args.schedule_value}". Must be positive milliseconds (e.g., "300000" for 5 min).` }],
+          content: [
+            {
+              type: 'text' as const,
+              text: `Invalid interval: "${args.schedule_value}". Must be positive milliseconds (e.g., "300000" for 5 min).`,
+            },
+          ],
           isError: true,
         };
       }
     } else if (args.schedule_type === 'once') {
-      if (/[Zz]$/.test(args.schedule_value) || /[+-]\d{2}:\d{2}$/.test(args.schedule_value)) {
+      if (
+        /[Zz]$/.test(args.schedule_value) ||
+        /[+-]\d{2}:\d{2}$/.test(args.schedule_value)
+      ) {
         return {
-          content: [{ type: 'text' as const, text: `Timestamp must be local time without timezone suffix. Got "${args.schedule_value}" — use format like "2026-02-01T15:30:00".` }],
+          content: [
+            {
+              type: 'text' as const,
+              text: `Timestamp must be local time without timezone suffix. Got "${args.schedule_value}" — use format like "2026-02-01T15:30:00".`,
+            },
+          ],
           isError: true,
         };
       }
       const date = new Date(args.schedule_value);
       if (isNaN(date.getTime())) {
         return {
-          content: [{ type: 'text' as const, text: `Invalid timestamp: "${args.schedule_value}". Use local time format like "2026-02-01T15:30:00".` }],
+          content: [
+            {
+              type: 'text' as const,
+              text: `Invalid timestamp: "${args.schedule_value}". Use local time format like "2026-02-01T15:30:00".`,
+            },
+          ],
           isError: true,
         };
       }
     }
 
     // Non-main groups can only schedule for themselves
-    const targetJid = isMain && args.target_group_jid ? args.target_group_jid : chatJid;
+    const targetJid =
+      isMain && args.target_group_jid ? args.target_group_jid : chatJid;
 
     const data = {
       type: 'schedule_task',
@@ -145,7 +197,12 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
     const filename = writeIpcFile(TASKS_DIR, data);
 
     return {
-      content: [{ type: 'text' as const, text: `Task scheduled (${filename}): ${args.schedule_type} - ${args.schedule_value}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Task scheduled (${filename}): ${args.schedule_type} - ${args.schedule_value}`,
+        },
+      ],
     };
   },
 );
@@ -159,30 +216,56 @@ server.tool(
 
     try {
       if (!fs.existsSync(tasksFile)) {
-        return { content: [{ type: 'text' as const, text: 'No scheduled tasks found.' }] };
+        return {
+          content: [
+            { type: 'text' as const, text: 'No scheduled tasks found.' },
+          ],
+        };
       }
 
       const allTasks = JSON.parse(fs.readFileSync(tasksFile, 'utf-8'));
 
       const tasks = isMain
         ? allTasks
-        : allTasks.filter((t: { groupFolder: string }) => t.groupFolder === groupFolder);
+        : allTasks.filter(
+            (t: { groupFolder: string }) => t.groupFolder === groupFolder,
+          );
 
       if (tasks.length === 0) {
-        return { content: [{ type: 'text' as const, text: 'No scheduled tasks found.' }] };
+        return {
+          content: [
+            { type: 'text' as const, text: 'No scheduled tasks found.' },
+          ],
+        };
       }
 
       const formatted = tasks
         .map(
-          (t: { id: string; prompt: string; schedule_type: string; schedule_value: string; status: string; next_run: string }) =>
+          (t: {
+            id: string;
+            prompt: string;
+            schedule_type: string;
+            schedule_value: string;
+            status: string;
+            next_run: string;
+          }) =>
             `- [${t.id}] ${t.prompt.slice(0, 50)}... (${t.schedule_type}: ${t.schedule_value}) - ${t.status}, next: ${t.next_run || 'N/A'}`,
         )
         .join('\n');
 
-      return { content: [{ type: 'text' as const, text: `Scheduled tasks:\n${formatted}` }] };
+      return {
+        content: [
+          { type: 'text' as const, text: `Scheduled tasks:\n${formatted}` },
+        ],
+      };
     } catch (err) {
       return {
-        content: [{ type: 'text' as const, text: `Error reading tasks: ${err instanceof Error ? err.message : String(err)}` }],
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error reading tasks: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
       };
     }
   },
@@ -203,7 +286,14 @@ server.tool(
 
     writeIpcFile(TASKS_DIR, data);
 
-    return { content: [{ type: 'text' as const, text: `Task ${args.task_id} pause requested.` }] };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Task ${args.task_id} pause requested.`,
+        },
+      ],
+    };
   },
 );
 
@@ -222,7 +312,14 @@ server.tool(
 
     writeIpcFile(TASKS_DIR, data);
 
-    return { content: [{ type: 'text' as const, text: `Task ${args.task_id} resume requested.` }] };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Task ${args.task_id} resume requested.`,
+        },
+      ],
+    };
   },
 );
 
@@ -241,7 +338,59 @@ server.tool(
 
     writeIpcFile(TASKS_DIR, data);
 
-    return { content: [{ type: 'text' as const, text: `Task ${args.task_id} cancellation requested.` }] };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Task ${args.task_id} cancellation requested.`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  'set_model',
+  'Set or clear the Claude model override for a group. Main group can target any group; non-main can only set their own group. Use empty model to clear override and fall back to startup default.',
+  {
+    model: z
+      .string()
+      .optional()
+      .describe(
+        'Model name (e.g., "claude-sonnet-4-5"). Leave empty to clear override.',
+      ),
+    target_group_folder: z
+      .string()
+      .optional()
+      .describe('(Main group only) Folder of the target group to update.'),
+  },
+  async (args) => {
+    const targetFolder =
+      isMain && args.target_group_folder
+        ? args.target_group_folder
+        : groupFolder;
+
+    const normalizedModel = args.model?.trim() || undefined;
+
+    const data = {
+      type: 'set_group_model',
+      groupFolder: targetFolder,
+      model: normalizedModel,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(TASKS_DIR, data);
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: normalizedModel
+            ? `Model override for ${targetFolder} set to: ${normalizedModel}`
+            : `Model override for ${targetFolder} cleared (fallback default: ${currentModel || 'SDK default'})`,
+        },
+      ],
+    };
   },
 );
 
@@ -251,15 +400,32 @@ server.tool(
 
 Use available_groups.json to find the JID for a group. The folder name should be lowercase with hyphens (e.g., "family-chat").`,
   {
-    jid: z.string().describe('The WhatsApp JID (e.g., "120363336345536173@g.us")'),
+    jid: z
+      .string()
+      .describe('The WhatsApp JID (e.g., "120363336345536173@g.us")'),
     name: z.string().describe('Display name for the group'),
-    folder: z.string().describe('Folder name for group files (lowercase, hyphens, e.g., "family-chat")'),
+    folder: z
+      .string()
+      .describe(
+        'Folder name for group files (lowercase, hyphens, e.g., "family-chat")',
+      ),
     trigger: z.string().describe('Trigger word (e.g., "@Andy")'),
+    model: z
+      .string()
+      .optional()
+      .describe(
+        'Optional model override for this group (e.g., "claude-sonnet-4-5")',
+      ),
   },
   async (args) => {
     if (!isMain) {
       return {
-        content: [{ type: 'text' as const, text: 'Only the main group can register new groups.' }],
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Only the main group can register new groups.',
+          },
+        ],
         isError: true,
       };
     }
@@ -270,13 +436,19 @@ Use available_groups.json to find the JID for a group. The folder name should be
       name: args.name,
       folder: args.folder,
       trigger: args.trigger,
+      model: args.model,
       timestamp: new Date().toISOString(),
     };
 
     writeIpcFile(TASKS_DIR, data);
 
     return {
-      content: [{ type: 'text' as const, text: `Group "${args.name}" registered. It will start receiving messages immediately.` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Group "${args.name}" registered. It will start receiving messages immediately.`,
+        },
+      ],
     };
   },
 );
@@ -291,23 +463,51 @@ mint and amount: provide BOTH or NEITHER.
 - For SOL, use wSOL mint: So11111111111111111111111111111111111111112
 - Account creation or other txns with no token movement: omit both`,
   {
-    signature: z.string().describe('The transaction signature (base58, ~88 chars)'),
-    protocol: z.string().describe('Protocol name (e.g., "jupiter", "dflow", "raydium", "drift", "system")'),
-    wallet_address: z.string().describe('Wallet public key that signed the transaction'),
-    mint: z.string().optional().describe('Token mint address. Required with amount. For SOL use wSOL: So11111111111111111111111111111111111111112'),
-    amount: z.string().optional().describe('Human-readable amount in token units (e.g., "1.5"). Required with mint.'),
+    signature: z
+      .string()
+      .describe('The transaction signature (base58, ~88 chars)'),
+    protocol: z
+      .string()
+      .describe(
+        'Protocol name (e.g., "jupiter", "dflow", "raydium", "drift", "system")',
+      ),
+    wallet_address: z
+      .string()
+      .describe('Wallet public key that signed the transaction'),
+    mint: z
+      .string()
+      .optional()
+      .describe(
+        'Token mint address. Required with amount. For SOL use wSOL: So11111111111111111111111111111111111111112',
+      ),
+    amount: z
+      .string()
+      .optional()
+      .describe(
+        'Human-readable amount in token units (e.g., "1.5"). Required with mint.',
+      ),
   },
   async (args) => {
     if (args.signature.length < 80 || args.signature.length > 100) {
       return {
-        content: [{ type: 'text' as const, text: `Invalid signature length (${args.signature.length}). Expected ~88 chars.` }],
+        content: [
+          {
+            type: 'text' as const,
+            text: `Invalid signature length (${args.signature.length}). Expected ~88 chars.`,
+          },
+        ],
         isError: true,
       };
     }
 
     if ((args.mint && !args.amount) || (!args.mint && args.amount)) {
       return {
-        content: [{ type: 'text' as const, text: 'mint and amount must be provided together or both omitted.' }],
+        content: [
+          {
+            type: 'text' as const,
+            text: 'mint and amount must be provided together or both omitted.',
+          },
+        ],
         isError: true,
       };
     }
@@ -325,7 +525,12 @@ mint and amount: provide BOTH or NEITHER.
     writeIpcFile(TRANSACTIONS_DIR, data);
 
     return {
-      content: [{ type: 'text' as const, text: `Transaction logged: ${args.signature.slice(0, 16)}...` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Transaction logged: ${args.signature.slice(0, 16)}...`,
+        },
+      ],
     };
   },
 );

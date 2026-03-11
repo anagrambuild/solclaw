@@ -5,7 +5,13 @@ import path from 'path';
 import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
-import { NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog, TransactionRecord } from './types.js';
+import {
+  NewMessage,
+  RegisteredGroup,
+  ScheduledTask,
+  TaskRunLog,
+  TransactionRecord,
+} from './types.js';
 
 let db: Database.Database;
 
@@ -74,6 +80,7 @@ function createSchema(database: Database.Database): void {
       folder TEXT NOT NULL UNIQUE,
       trigger_pattern TEXT NOT NULL,
       added_at TEXT NOT NULL,
+      model TEXT,
       container_config TEXT,
       requires_trigger INTEGER DEFAULT 1
     );
@@ -108,28 +115,39 @@ function createSchema(database: Database.Database): void {
       `ALTER TABLE messages ADD COLUMN is_bot_message INTEGER DEFAULT 0`,
     );
     // Backfill: mark existing bot messages that used the content prefix pattern
-    database.prepare(
-      `UPDATE messages SET is_bot_message = 1 WHERE content LIKE ?`,
-    ).run(`${ASSISTANT_NAME}:%`);
+    database
+      .prepare(`UPDATE messages SET is_bot_message = 1 WHERE content LIKE ?`)
+      .run(`${ASSISTANT_NAME}:%`);
   } catch {
     /* column already exists */
   }
 
   // Add channel and is_group columns if they don't exist (migration for existing DBs)
   try {
-    database.exec(
-      `ALTER TABLE chats ADD COLUMN channel TEXT`,
-    );
-    database.exec(
-      `ALTER TABLE chats ADD COLUMN is_group INTEGER DEFAULT 0`,
-    );
+    database.exec(`ALTER TABLE chats ADD COLUMN channel TEXT`);
+    database.exec(`ALTER TABLE chats ADD COLUMN is_group INTEGER DEFAULT 0`);
     // Backfill from JID patterns
-    database.exec(`UPDATE chats SET channel = 'whatsapp', is_group = 1 WHERE jid LIKE '%@g.us'`);
-    database.exec(`UPDATE chats SET channel = 'whatsapp', is_group = 0 WHERE jid LIKE '%@s.whatsapp.net'`);
-    database.exec(`UPDATE chats SET channel = 'discord', is_group = 1 WHERE jid LIKE 'dc:%'`);
-    database.exec(`UPDATE chats SET channel = 'telegram', is_group = 1 WHERE jid LIKE 'tg:%'`);
+    database.exec(
+      `UPDATE chats SET channel = 'whatsapp', is_group = 1 WHERE jid LIKE '%@g.us'`,
+    );
+    database.exec(
+      `UPDATE chats SET channel = 'whatsapp', is_group = 0 WHERE jid LIKE '%@s.whatsapp.net'`,
+    );
+    database.exec(
+      `UPDATE chats SET channel = 'discord', is_group = 1 WHERE jid LIKE 'dc:%'`,
+    );
+    database.exec(
+      `UPDATE chats SET channel = 'telegram', is_group = 1 WHERE jid LIKE 'tg:%'`,
+    );
   } catch {
     /* columns already exist */
+  }
+
+  // Add model column if it doesn't exist (migration for existing DBs)
+  try {
+    database.exec(`ALTER TABLE registered_groups ADD COLUMN model TEXT`);
+  } catch {
+    /* column already exists */
   }
 }
 
@@ -533,6 +551,7 @@ export function getRegisteredGroup(
         folder: string;
         trigger_pattern: string;
         added_at: string;
+        model: string | null;
         container_config: string | null;
         requires_trigger: number | null;
       }
@@ -551,43 +570,42 @@ export function getRegisteredGroup(
     folder: row.folder,
     trigger: row.trigger_pattern,
     added_at: row.added_at,
+    model: row.model || undefined,
     containerConfig: row.container_config
       ? JSON.parse(row.container_config)
       : undefined,
-    requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
+    requiresTrigger:
+      row.requires_trigger === null ? undefined : row.requires_trigger === 1,
   };
 }
 
-export function setRegisteredGroup(
-  jid: string,
-  group: RegisteredGroup,
-): void {
+export function setRegisteredGroup(jid: string, group: RegisteredGroup): void {
   if (!isValidGroupFolder(group.folder)) {
     throw new Error(`Invalid group folder "${group.folder}" for JID ${jid}`);
   }
   db.prepare(
-    `INSERT OR REPLACE INTO registered_groups (jid, name, folder, trigger_pattern, added_at, container_config, requires_trigger)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO registered_groups (jid, name, folder, trigger_pattern, added_at, model, container_config, requires_trigger)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     jid,
     group.name,
     group.folder,
     group.trigger,
     group.added_at,
+    group.model || null,
     group.containerConfig ? JSON.stringify(group.containerConfig) : null,
     group.requiresTrigger === undefined ? 1 : group.requiresTrigger ? 1 : 0,
   );
 }
 
 export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
-  const rows = db
-    .prepare('SELECT * FROM registered_groups')
-    .all() as Array<{
+  const rows = db.prepare('SELECT * FROM registered_groups').all() as Array<{
     jid: string;
     name: string;
     folder: string;
     trigger_pattern: string;
     added_at: string;
+    model: string | null;
     container_config: string | null;
     requires_trigger: number | null;
   }>;
@@ -605,10 +623,12 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
       folder: row.folder,
       trigger: row.trigger_pattern,
       added_at: row.added_at,
+      model: row.model || undefined,
       containerConfig: row.container_config
         ? JSON.parse(row.container_config)
         : undefined,
-      requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
+      requiresTrigger:
+        row.requires_trigger === null ? undefined : row.requires_trigger === 1,
     };
   }
   return result;
@@ -616,7 +636,9 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
 
 // --- Transaction accessors ---
 
-export function logTransaction(record: Omit<TransactionRecord, 'id' | 'synced_at' | 'sync_error'>): void {
+export function logTransaction(
+  record: Omit<TransactionRecord, 'id' | 'synced_at' | 'sync_error'>,
+): void {
   db.prepare(
     `INSERT OR IGNORE INTO transactions (signature, protocol, mint, wallet_address, amount, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -632,7 +654,9 @@ export function logTransaction(record: Omit<TransactionRecord, 'id' | 'synced_at
 
 export function getUnsyncedTransactions(limit = 100): TransactionRecord[] {
   return db
-    .prepare('SELECT * FROM transactions WHERE synced_at IS NULL ORDER BY created_at LIMIT ?')
+    .prepare(
+      'SELECT * FROM transactions WHERE synced_at IS NULL ORDER BY created_at LIMIT ?',
+    )
     .all(limit) as TransactionRecord[];
 }
 
@@ -653,7 +677,9 @@ export function markTransactionSyncError(ids: number[], error: string): void {
   ).run(error, ...ids);
 }
 
-export function getTransactionBySignature(signature: string): TransactionRecord | undefined {
+export function getTransactionBySignature(
+  signature: string,
+): TransactionRecord | undefined {
   return db
     .prepare('SELECT * FROM transactions WHERE signature = ?')
     .get(signature) as TransactionRecord | undefined;

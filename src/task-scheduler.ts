@@ -4,12 +4,17 @@ import fs from 'fs';
 
 import {
   ASSISTANT_NAME,
+  DEFAULT_MODEL,
   IDLE_TIMEOUT,
   MAIN_GROUP_FOLDER,
   SCHEDULER_POLL_INTERVAL,
   TIMEZONE,
 } from './config.js';
-import { ContainerOutput, runContainerAgent, writeTasksSnapshot } from './container-runner.js';
+import {
+  ContainerOutput,
+  runContainerAgent,
+  writeTasksSnapshot,
+} from './container-runner.js';
 import {
   getAllTasks,
   getDueTasks,
@@ -27,7 +32,12 @@ export interface SchedulerDependencies {
   registeredGroups: () => Record<string, RegisteredGroup>;
   getSessions: () => Record<string, string>;
   queue: GroupQueue;
-  onProcess: (groupJid: string, proc: ChildProcess, containerName: string, groupFolder: string) => void;
+  onProcess: (
+    groupJid: string,
+    proc: ChildProcess,
+    containerName: string,
+    groupFolder: string,
+  ) => void;
   sendMessage: (jid: string, text: string) => Promise<void>;
 }
 
@@ -109,6 +119,7 @@ async function runTask(
   const sessions = deps.getSessions();
   const sessionId =
     task.context_mode === 'group' ? sessions[task.group_folder] : undefined;
+  const model = group.model || DEFAULT_MODEL || undefined;
 
   // After the task produces a result, close the container promptly.
   // Tasks are single-turn — no need to wait IDLE_TIMEOUT (30 min) for the
@@ -130,13 +141,15 @@ async function runTask(
       {
         prompt: task.prompt,
         sessionId,
+        model,
         groupFolder: task.group_folder,
         chatJid: task.chat_jid,
         isMain,
         isScheduledTask: true,
         assistantName: ASSISTANT_NAME,
       },
-      (proc, containerName) => deps.onProcess(task.chat_jid, proc, containerName, task.group_folder),
+      (proc, containerName) =>
+        deps.onProcess(task.chat_jid, proc, containerName, task.group_folder),
       async (streamedOutput: ContainerOutput) => {
         if (streamedOutput.result) {
           result = streamedOutput.result;
@@ -227,10 +240,8 @@ export function startSchedulerLoop(deps: SchedulerDependencies): void {
           continue;
         }
 
-        deps.queue.enqueueTask(
-          currentTask.chat_jid,
-          currentTask.id,
-          () => runTask(currentTask, deps),
+        deps.queue.enqueueTask(currentTask.chat_jid, currentTask.id, () =>
+          runTask(currentTask, deps),
         );
       }
     } catch (err) {

@@ -10,7 +10,14 @@ import {
   TIMEZONE,
 } from './config.js';
 import { AvailableGroup } from './container-runner.js';
-import { createTask, deleteTask, getTaskById, getTransactionBySignature, logTransaction, updateTask } from './db.js';
+import {
+  createTask,
+  deleteTask,
+  getTaskById,
+  getTransactionBySignature,
+  logTransaction,
+  updateTask,
+} from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
@@ -19,6 +26,7 @@ export interface IpcDeps {
   sendMessage: (jid: string, text: string) => Promise<void>;
   registeredGroups: () => Record<string, RegisteredGroup>;
   registerGroup: (jid: string, group: RegisteredGroup) => void;
+  updateGroupModel: (groupFolder: string, model?: string) => boolean;
   syncGroupMetadata: (force: boolean) => Promise<void>;
   getAvailableGroups: () => AvailableGroup[];
   writeGroupsSnapshot: (
@@ -61,7 +69,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
       const isMain = sourceGroup === MAIN_GROUP_FOLDER;
       const messagesDir = path.join(ipcBaseDir, sourceGroup, 'messages');
       const tasksDir = path.join(ipcBaseDir, sourceGroup, 'tasks');
-      const transactionsDir = path.join(ipcBaseDir, sourceGroup, 'transactions');
+      const transactionsDir = path.join(
+        ipcBaseDir,
+        sourceGroup,
+        'transactions',
+      );
 
       // Process messages from this group's IPC directory
       try {
@@ -124,12 +136,21 @@ export function startIpcWatcher(deps: IpcDeps): void {
             const filePath = path.join(transactionsDir, file);
             try {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-              if (data.type === 'log_transaction' && data.signature && data.protocol && data.wallet_address) {
+              if (
+                data.type === 'log_transaction' &&
+                data.signature &&
+                data.protocol &&
+                data.wallet_address
+              ) {
                 // Deduplicate: skip if this signature was already logged (e.g. explicit tool log + auto preload)
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
                   logger.debug(
-                    { signature: data.signature.slice(0, 16), existingProtocol: existing.protocol, newProtocol: data.protocol },
+                    {
+                      signature: data.signature.slice(0, 16),
+                      existingProtocol: existing.protocol,
+                      newProtocol: data.protocol,
+                    },
                     'Skipping duplicate transaction',
                   );
                 } else {
@@ -142,7 +163,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     created_at: data.timestamp || new Date().toISOString(),
                   });
                   logger.info(
-                    { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                    {
+                      signature: data.signature.slice(0, 16),
+                      protocol: data.protocol,
+                      sourceGroup,
+                    },
                     'Transaction logged',
                   );
                 }
@@ -225,6 +250,7 @@ export async function processTaskIpc(
     folder?: string;
     trigger?: string;
     requiresTrigger?: boolean;
+    model?: string;
     containerConfig?: RegisteredGroup['containerConfig'];
   },
   sourceGroup: string, // Verified identity from IPC directory
@@ -426,6 +452,7 @@ export async function processTaskIpc(
           folder: data.folder,
           trigger: data.trigger,
           added_at: new Date().toISOString(),
+          model: data.model,
           containerConfig: data.containerConfig,
           requiresTrigger: data.requiresTrigger,
         });
@@ -436,6 +463,32 @@ export async function processTaskIpc(
         );
       }
       break;
+
+    case 'set_group_model': {
+      const targetFolder = data.groupFolder;
+      if (!targetFolder) {
+        logger.warn(
+          { sourceGroup },
+          'Invalid set_group_model request - missing groupFolder',
+        );
+        break;
+      }
+      if (!isMain && targetFolder !== sourceGroup) {
+        logger.warn(
+          { sourceGroup, targetFolder },
+          'Unauthorized set_group_model attempt blocked',
+        );
+        break;
+      }
+      const updated = deps.updateGroupModel(targetFolder, data.model);
+      if (!updated) {
+        logger.warn(
+          { sourceGroup, targetFolder },
+          'set_group_model target group not found',
+        );
+      }
+      break;
+    }
 
     default:
       logger.warn({ type: data.type }, 'Unknown IPC task type');

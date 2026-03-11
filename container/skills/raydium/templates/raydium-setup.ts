@@ -21,7 +21,7 @@ const CONFIG = {
   CLUSTER: 'mainnet' as const, // 'mainnet' | 'devnet'
 
   // RPC - Replace with your own for production
-  RPC_URL: process.env.RPC_URL || 'https://api.mainnet-beta.solana.com',
+  RPC_URL: process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta',
 
   // Wallet - Load from environment or file
   WALLET_SECRET: process.env.WALLET_SECRET || '',

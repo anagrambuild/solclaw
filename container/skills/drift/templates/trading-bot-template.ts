@@ -36,7 +36,7 @@ dotenv.config();
 
 const CONFIG = {
   // RPC Configuration
-  RPC_URL: process.env.RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta',
+  RPC_URL: process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta',
   ENV: (process.env.DRIFT_ENV || 'mainnet-beta') as DriftEnv,
 
   // Trading Parameters

@@ -142,7 +142,13 @@ function buildVolumeMounts(
   const groupIpcDir = resolveGroupIpcPath(group.folder);
   fs.mkdirSync(path.join(groupIpcDir, 'messages'), { recursive: true });
   fs.mkdirSync(path.join(groupIpcDir, 'tasks'), { recursive: true });
-  fs.mkdirSync(path.join(groupIpcDir, 'input'), { recursive: true });
+  const inputDir = path.join(groupIpcDir, 'input');
+  fs.mkdirSync(inputDir, { recursive: true });
+  // Clean up stale _close sentinels from previous container runs
+  const closeFile = path.join(inputDir, '_close');
+  if (fs.existsSync(closeFile)) {
+    try { fs.unlinkSync(closeFile); } catch { /* ignore */ }
+  }
   fs.mkdirSync(path.join(groupIpcDir, 'transactions'), { recursive: true });
   mounts.push({
     hostPath: groupIpcDir,
@@ -613,7 +619,9 @@ export function writeTasksSnapshot(
     : tasks.filter((t) => t.groupFolder === groupFolder);
 
   const tasksFile = path.join(groupIpcDir, 'current_tasks.json');
-  fs.writeFileSync(tasksFile, JSON.stringify(filteredTasks, null, 2));
+  const tasksTmp = `${tasksFile}.tmp`;
+  fs.writeFileSync(tasksTmp, JSON.stringify(filteredTasks, null, 2));
+  fs.renameSync(tasksTmp, tasksFile);
 }
 
 export interface AvailableGroup {
@@ -641,8 +649,9 @@ export function writeGroupsSnapshot(
   const visibleGroups = isMain ? groups : [];
 
   const groupsFile = path.join(groupIpcDir, 'available_groups.json');
+  const groupsTmp = `${groupsFile}.tmp`;
   fs.writeFileSync(
-    groupsFile,
+    groupsTmp,
     JSON.stringify(
       {
         groups: visibleGroups,
@@ -652,4 +661,5 @@ export function writeGroupsSnapshot(
       2,
     ),
   );
+  fs.renameSync(groupsTmp, groupsFile);
 }

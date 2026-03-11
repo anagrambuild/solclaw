@@ -10,9 +10,10 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { AlphaVault } from '@meteora-ag/alpha-vault';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const VAULT_ADDRESS = new PublicKey('YOUR_ALPHA_VAULT_ADDRESS');
 
 async function participateInLaunch() {
@@ -115,6 +116,7 @@ async function participateInLaunch() {
 
     console.log('Deposit successful!');
     console.log('Transaction:', txHash);
+    logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, depositAmount.toString());
 
     // Check new allocation
     const newAllocation = await alphaVault.getUserAllocation(wallet.publicKey);
@@ -147,6 +149,7 @@ async function participateInLaunch() {
     console.log('Claim successful!');
     console.log('Transaction:', txHash);
     console.log('Tokens received:', allocation.tokenAllocation.toString());
+    logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, allocation.tokenAllocation.toString());
   }
 }
 
@@ -188,6 +191,7 @@ async function withdrawFromVault() {
 
   console.log('Withdrawal successful!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, allocation.depositAmount.toString());
 }
 
 // Monitor vault fill status

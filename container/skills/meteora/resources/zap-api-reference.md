@@ -28,7 +28,7 @@ Mainnet/Devnet: zapvX9M3uf5pvy4wRPAbQgdQsM1xmuiFnkfHKPvwMiz
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Zap } from '@meteora-ag/zap-sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const JUPITER_API_URL = 'https://quote-api.jup.ag/v6';
 const JUPITER_API_KEY = 'your-api-key';
 
@@ -243,7 +243,7 @@ import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { Zap } from '@meteora-ag/zap-sdk';
 import BN from 'bn.js';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const wallet = Keypair.fromSecretKey(/* your key */);
 
 const zap = new Zap(

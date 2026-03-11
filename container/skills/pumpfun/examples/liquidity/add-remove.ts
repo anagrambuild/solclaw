@@ -21,6 +21,7 @@ import {
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
 import * as fs from 'fs';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Program IDs
 const PUMP_AMM_PROGRAM_ID = new PublicKey('pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA');
@@ -228,6 +229,8 @@ async function addLiquidity(
     { commitment: 'confirmed' }
   );
 
+  logTransactionIpc(signature, 'pumpfun', payer.publicKey.toString(), poolState.baseMint.toString(), baseAmount.toString());
+
   console.log('\n=== Liquidity Added Successfully ===');
   console.log('Signature:', signature);
 
@@ -328,6 +331,8 @@ async function removeLiquidity(
     [payer],
     { commitment: 'confirmed' }
   );
+
+  logTransactionIpc(signature, 'pumpfun', payer.publicKey.toString(), poolState.baseMint.toString(), lpTokenAmount.toString());
 
   console.log('\n=== Liquidity Removed Successfully ===');
   console.log('Signature:', signature);

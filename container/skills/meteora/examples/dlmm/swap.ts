@@ -10,9 +10,10 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import DLMM from '@meteora-ag/dlmm';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const POOL_ADDRESS = new PublicKey('YOUR_POOL_ADDRESS');
 
 async function executeSwap() {
@@ -80,6 +81,7 @@ async function executeSwap() {
   console.log('Swap successful!');
   console.log('Transaction:', txHash);
   console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, swapAmount.toString());
 
   // 12. Verify new price
   await dlmm.refetchStates();

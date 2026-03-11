@@ -99,7 +99,7 @@ The DLMM SDK provides programmatic access to Meteora's concentrated liquidity pr
 import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import DLMM from '@meteora-ag/dlmm';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const poolAddress = new PublicKey('POOL_ADDRESS');
 
 // Create DLMM instance for existing pool
@@ -315,7 +315,7 @@ const createPoolTx = await cpAmm.createCustomPool({
 import { Connection } from '@solana/web3.js';
 import { CpAmm } from '@meteora-ag/cp-amm-sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const cpAmm = new CpAmm(connection);
 ```
 
@@ -586,7 +586,7 @@ The Dynamic Bonding Curve SDK enables building customizable token launches with 
 import { Connection } from '@solana/web3.js';
 import { DynamicBondingCurve } from '@meteora-ag/dynamic-bonding-curve-sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const dbc = new DynamicBondingCurve(connection, 'confirmed');
 ```
 
@@ -719,7 +719,7 @@ The Vault SDK provides yield-optimized token storage with automatic strategy man
 import { Connection, PublicKey } from '@solana/web3.js';
 import { VaultImpl } from '@meteora-ag/vault-sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const tokenMint = new PublicKey('TOKEN_MINT_ADDRESS');
 
 // Create vault instance
@@ -796,7 +796,7 @@ The Alpha Vault SDK provides anti-bot protection for token launches, ensuring fa
 import { Connection, PublicKey } from '@solana/web3.js';
 import { AlphaVault } from '@meteora-ag/alpha-vault';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const vaultAddress = new PublicKey('VAULT_ADDRESS');
 
 const alphaVault = await AlphaVault.create(connection, vaultAddress);
@@ -848,7 +848,7 @@ The M3M3 SDK enables staking tokens to earn fees from trading activity.
 import { Connection, PublicKey } from '@solana/web3.js';
 import { StakeForFee } from '@meteora-ag/m3m3';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const poolAddress = new PublicKey('POOL_ADDRESS');
 
 const m3m3 = await StakeForFee.create(connection, poolAddress);
@@ -902,7 +902,7 @@ The DAMM v1 SDK is the original constant product AMM, still widely used for stab
 import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import AmmImpl from '@meteora-ag/dynamic-amm';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 
 // Create pool instance
 const pool = await AmmImpl.create(connection, new PublicKey('POOL_ADDRESS'));
@@ -1037,7 +1037,7 @@ The Zap SDK enables single-token entry and exit for liquidity positions, automat
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Zap } from '@meteora-ag/zap-sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 
 // Jupiter API key is required (get from Jupiter Portal)
 const JUPITER_API_URL = 'https://quote-api.jup.ag/v6';
@@ -1149,7 +1149,7 @@ The Pool Farms SDK enables creating and managing liquidity mining farms on DAMM 
 import { Connection, PublicKey } from '@solana/web3.js';
 import { FarmImpl } from '@meteora-ag/farming';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const farmAddress = new PublicKey('FARM_ADDRESS');
 
 const farm = await FarmImpl.create(connection, farmAddress);
@@ -1193,7 +1193,7 @@ import { Connection, Keypair } from '@solana/web3.js';
 import { Wallet, AnchorProvider } from '@coral-xyz/anchor';
 import DLMM from '@meteora-ag/dlmm';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const keypair = Keypair.fromSecretKey(/* your secret key */);
 const wallet = new Wallet(keypair);
 

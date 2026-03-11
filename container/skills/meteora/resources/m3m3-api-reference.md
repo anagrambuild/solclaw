@@ -122,7 +122,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { StakeForFee } from '@meteora-ag/m3m3';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const poolAddress = new PublicKey('POOL_ADDRESS');
 
 // Create instance

@@ -18,6 +18,7 @@ import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@sola
 import { BN } from '@coral-xyz/anchor';
 import { DynamicBondingCurve } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { NATIVE_MINT, createMint, getOrCreateAssociatedTokenAccount, mintTo } from '@solana/spl-token';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // =============================================================================
 // CONFIGURATION - Customize these values
@@ -25,7 +26,7 @@ import { NATIVE_MINT, createMint, getOrCreateAssociatedTokenAccount, mintTo } fr
 
 const CONFIG = {
   // Network
-  rpcEndpoint: process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com',
+  rpcEndpoint: process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta',
 
   // Token details
   tokenName: 'My Awesome Token',
@@ -152,6 +153,7 @@ class TokenLauncher {
     console.log('Pool created!');
     console.log('Transaction:', txHash);
     console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+    logTransactionIpc(txHash, 'meteora', this.wallet.publicKey.toString(), this.tokenMint.toString());
 
     // Store pool address for monitoring
     // Note: You would need to derive this from the transaction or fetch it
@@ -249,6 +251,7 @@ class TokenLauncher {
     console.log('Migration complete!');
     console.log('Transaction:', txHash);
     console.log('\nToken is now trading on DAMM v2!');
+    logTransactionIpc(txHash, 'meteora', this.wallet.publicKey.toString());
   }
 
   async fullLaunchFlow(): Promise<void> {

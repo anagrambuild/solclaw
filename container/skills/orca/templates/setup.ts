@@ -227,13 +227,15 @@ export class OrcaClient {
   ): Promise<string> {
     await this.ensureInitialized();
 
-    const signature = await swap(
+    // Use swapInstructions (NOT the wrapper swap) since we need explicit rpc + wallet
+    const { callback } = await swapInstructions(
       this.rpc,
       { inputAmount, mint: inputMint },
       poolAddress,
       slippageBps || CONFIG.defaultSlippage,
       this.wallet!
     );
+    const signature = await callback();
     logTransactionIpc(signature, 'orca', this.wallet!.address.toString(), inputMint.toString(), inputAmount.toString());
     return signature;
   }

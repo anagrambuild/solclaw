@@ -10,9 +10,10 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import DLMM, { StrategyType } from '@meteora-ag/dlmm';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const POOL_ADDRESS = new PublicKey('YOUR_POOL_ADDRESS');
 
 async function addLiquidity() {
@@ -72,6 +73,7 @@ async function addLiquidity() {
   console.log('\nLiquidity added successfully!');
   console.log('Transaction:', txHash);
   console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   // 9. Verify position
   const positions = await dlmm.getPositionsByUserAndLbPair(wallet.publicKey);
@@ -127,6 +129,7 @@ async function addToExistingPosition() {
 
   const txHash = await sendAndConfirmTransaction(connection, addLiquidityTx, [wallet]);
   console.log('Added liquidity:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Run

@@ -21,7 +21,7 @@ import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 // import { mplGenesis, createGenesis, ... } from '@metaplex-foundation/mpl-genesis';
 
 // Configuration
-const RPC_URL = process.env.RPC_URL || 'https://api.devnet.solana.com';
+const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
 /**
  * Setup Umi instance

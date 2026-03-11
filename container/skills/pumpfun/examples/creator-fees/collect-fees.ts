@@ -21,6 +21,7 @@ import {
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
 import * as fs from 'fs';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Program IDs
 const PUMP_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
@@ -140,6 +141,8 @@ async function collectBondingCurveCreatorFee(
     { commitment: 'confirmed' }
   );
 
+  logTransactionIpc(signature, 'pumpfun', creator.publicKey.toString(), undefined, (balance / 1e9).toString());
+
   console.log('\n=== Fees Collected Successfully ===');
   console.log('Signature:', signature);
   console.log('Collected:', balance / 1e9, 'SOL');
@@ -236,6 +239,8 @@ async function collectPumpSwapCreatorFee(
     [coinCreator],
     { commitment: 'confirmed' }
   );
+
+  logTransactionIpc(signature, 'pumpfun', coinCreator.publicKey.toString(), quoteMint.toString(), (balance / 1e9).toString());
 
   console.log('\n=== Fees Collected Successfully ===');
   console.log('Signature:', signature);

@@ -16,6 +16,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // API Configuration
 const SWAP_API = "https://quote-api.dflow.net";
@@ -264,6 +265,7 @@ async function buyYesTokens(
     keypair,
     order.transaction
   );
+  logTransactionIpc(signature, 'dflow', keypair.publicKey.toBase58(), market.yes_mint, usdcAmount);
   console.log(`  Transaction sent: ${signature}`);
 
   // Handle based on execution mode
@@ -317,6 +319,7 @@ async function buyNoTokens(
     keypair,
     order.transaction
   );
+  logTransactionIpc(signature, 'dflow', keypair.publicKey.toBase58(), market.no_mint, usdcAmount);
   console.log(`  Transaction sent: ${signature}`);
 
   if (order.executionMode === "async") {
@@ -362,6 +365,7 @@ async function sellOutcomeTokens(
     keypair,
     order.transaction
   );
+  logTransactionIpc(signature, 'dflow', keypair.publicKey.toBase58(), outcomeMint, amount);
   console.log(`  Transaction sent: ${signature}`);
 
   if (order.executionMode === "async") {

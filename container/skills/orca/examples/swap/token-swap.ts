@@ -15,6 +15,7 @@ import {
 } from "@orca-so/whirlpools";
 import { createSolanaRpc, address, Address } from "@solana/kit";
 import * as fs from "fs";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -103,6 +104,7 @@ async function simpleSwap() {
     wallet
   );
 
+  logTransactionIpc(txId, 'orca', String(wallet.address), String(inputMint), String(inputAmount));
   console.log("Transaction:", txId);
 }
 
@@ -209,6 +211,7 @@ async function swapWithPriorityFees() {
     wallet
   );
 
+  logTransactionIpc(txId, 'orca', String(wallet.address), String(inputMint), String(inputAmount));
   console.log("Transaction (with priority fees):", txId);
 }
 
@@ -300,6 +303,7 @@ async function swapWithErrorHandling() {
       wallet
     );
 
+    logTransactionIpc(txId, 'orca', String(wallet.address));
     console.log("Swap successful:", txId);
   } catch (error) {
     if (error instanceof Error) {

@@ -24,7 +24,7 @@ import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 const CONFIG = {
   // Network
-  rpcEndpoint: process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com',
+  rpcEndpoint: process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta',
 
   // Pool to trade
   poolAddress: new PublicKey(process.env.POOL_ADDRESS || 'YOUR_POOL_ADDRESS'),

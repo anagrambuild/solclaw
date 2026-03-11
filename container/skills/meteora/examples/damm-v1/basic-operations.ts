@@ -16,7 +16,7 @@ import BN from "bn.js";
 import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta";
 
 // Common token mints
 const SOL_MINT = new PublicKey("So11111111111111111111111111111111111111112");

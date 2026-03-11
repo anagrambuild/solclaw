@@ -15,7 +15,7 @@ import { Raydium } from '@raydium-io/raydium-sdk-v2';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const owner = Keypair.fromSecretKey(bs58.decode('YOUR_SECRET_KEY'));
 
 async function getAmmPoolInfo(poolId: string) {

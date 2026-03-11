@@ -45,7 +45,7 @@ import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 // Setup connection
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const wallet = Keypair.fromSecretKey(bs58.decode('YOUR_SECRET_KEY'));
 
 // Program addresses

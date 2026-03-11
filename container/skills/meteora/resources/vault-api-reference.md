@@ -95,7 +95,7 @@ import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { VaultImpl } from '@meteora-ag/vault-sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const tokenMint = new PublicKey('TOKEN_MINT_ADDRESS');
 
 // Create vault instance

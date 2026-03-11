@@ -13,7 +13,7 @@ import { DynamicBondingCurve } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const POOL_ADDRESS = new PublicKey('YOUR_POOL_ADDRESS');
 
 async function buyTokens() {

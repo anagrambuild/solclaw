@@ -14,7 +14,7 @@ import { NATIVE_MINT } from '@solana/spl-token';
 import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 
 async function launchToken() {
   // 1. Setup

@@ -17,7 +17,7 @@ import Decimal from 'decimal.js';
 import BN from 'bn.js';
 import bs58 from 'bs58';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const owner = Keypair.fromSecretKey(bs58.decode('YOUR_SECRET_KEY'));
 
 async function createClmmPool() {

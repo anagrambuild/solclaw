@@ -18,7 +18,7 @@ import BN from "bn.js";
 import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.breeze.baby/agent/rpc-mainnet-beta";
 const JUPITER_API_URL = "https://quote-api.jup.ag/v6";
 const JUPITER_API_KEY = process.env.JUPITER_API_KEY!;
 

@@ -30,7 +30,7 @@ import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 const CONFIG = {
   // RPC endpoint
-  rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+  rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta',
 
   // Commitment level
   commitment: 'confirmed' as Commitment,

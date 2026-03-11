@@ -33,7 +33,7 @@ interface PoolConfig {
 }
 
 const CONFIG = {
-  rpcEndpoint: process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com',
+  rpcEndpoint: process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta',
 
   // Pools to manage
   pools: [

@@ -13,7 +13,7 @@ import { AlphaVault } from '@meteora-ag/alpha-vault';
 import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const VAULT_ADDRESS = new PublicKey('YOUR_ALPHA_VAULT_ADDRESS');
 
 async function participateInLaunch() {

@@ -28,7 +28,7 @@ Mainnet/Devnet: Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB
 import { Connection, PublicKey } from '@solana/web3.js';
 import AmmImpl from '@meteora-ag/dynamic-amm';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 
 // Create single pool instance
 const pool = await AmmImpl.create(
@@ -386,7 +386,7 @@ import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import AmmImpl from '@meteora-ag/dynamic-amm';
 import BN from 'bn.js';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const wallet = Keypair.fromSecretKey(/* your key */);
 
 async function main() {

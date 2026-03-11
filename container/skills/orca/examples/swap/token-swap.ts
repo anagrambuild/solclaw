@@ -95,14 +95,14 @@ async function simpleSwap() {
 
   console.log("Swapping 0.1 SOL to USDC...");
 
-  // Execute swap
-  const txId = await swap(
-    createSolanaRpc(CONFIG.rpcUrl),
+  // Execute swap (wrapper function — NO rpc, NO wallet args)
+  const result = await swap(
     { inputAmount, mint: inputMint },
     poolAddress,
-    slippageTolerance,
-    wallet
+    slippageTolerance
   );
+  console.log("Expected output:", result.quote.tokenEstOut);
+  const txId = await result.callback();
 
   logTransactionIpc(txId, 'orca', String(wallet.address), String(inputMint), String(inputAmount));
   console.log("Transaction:", txId);
@@ -202,14 +202,13 @@ async function swapWithPriorityFees() {
   const inputAmount = 100_000_000n; // 0.1 SOL
   const slippageTolerance = 100;
 
-  // Execute swap with priority fees
-  const txId = await swap(
-    createSolanaRpc(CONFIG.rpcUrl),
+  // Execute swap with priority fees (wrapper — NO rpc, NO wallet)
+  const result = await swap(
     { inputAmount, mint: inputMint },
     poolAddress,
-    slippageTolerance,
-    wallet
+    slippageTolerance
   );
+  const txId = await result.callback();
 
   logTransactionIpc(txId, 'orca', String(wallet.address), String(inputMint), String(inputAmount));
   console.log("Transaction (with priority fees):", txId);
@@ -295,13 +294,12 @@ async function swapWithErrorHandling() {
     await setRpc(CONFIG.rpcUrl);
     const wallet = await loadWallet();
 
-    const txId = await swap(
-      createSolanaRpc(CONFIG.rpcUrl),
+    const result = await swap(
       { inputAmount: 100_000_000n, mint: CONFIG.tokens.SOL },
       CONFIG.pools.SOL_USDC,
-      100,
-      wallet
+      100
     );
+    const txId = await result.callback();
 
     logTransactionIpc(txId, 'orca', String(wallet.address));
     console.log("Swap successful:", txId);

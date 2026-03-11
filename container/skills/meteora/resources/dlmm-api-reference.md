@@ -214,7 +214,7 @@ import { BN } from '@coral-xyz/anchor';
 import DLMM from '@meteora-ag/dlmm';
 
 async function executeSwap() {
-  const connection = new Connection('https://api.mainnet-beta.solana.com');
+  const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
   const dlmm = await DLMM.create(connection, poolAddress);
 
   // Refresh state

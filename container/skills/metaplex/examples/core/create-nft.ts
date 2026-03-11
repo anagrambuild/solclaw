@@ -32,7 +32,7 @@ import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 import * as fs from 'fs';
 
 // Configuration
-const RPC_URL = process.env.RPC_URL || 'https://api.devnet.solana.com';
+const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
 /**
  * Setup Umi instance with Core plugin

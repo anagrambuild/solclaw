@@ -94,7 +94,8 @@ function createSchema(database: Database.Database): void {
       amount TEXT,
       created_at TEXT NOT NULL,
       synced_at TEXT,
-      sync_error TEXT
+      sync_error TEXT,
+      sync_retries INTEGER DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_transactions_synced_at ON transactions(synced_at);
     CREATE INDEX IF NOT EXISTS idx_transactions_protocol ON transactions(protocol);
@@ -118,6 +119,15 @@ function createSchema(database: Database.Database): void {
     database
       .prepare(`UPDATE messages SET is_bot_message = 1 WHERE content LIKE ?`)
       .run(`${ASSISTANT_NAME}:%`);
+  } catch {
+    /* column already exists */
+  }
+
+  // Add sync_retries column if it doesn't exist (migration for existing DBs)
+  try {
+    database.exec(
+      `ALTER TABLE transactions ADD COLUMN sync_retries INTEGER DEFAULT 0`,
+    );
   } catch {
     /* column already exists */
   }
@@ -636,6 +646,8 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
 
 // --- Transaction accessors ---
 
+const MAX_SYNC_RETRIES = 10;
+
 export function logTransaction(
   record: Omit<TransactionRecord, 'id' | 'synced_at' | 'sync_error'>,
 ): void {
@@ -652,12 +664,36 @@ export function logTransaction(
   );
 }
 
+/**
+ * Upgrade a transaction's metadata if the existing record has degraded data
+ * (e.g. protocol='auto' from the preload safety net). Richer explicit logs
+ * should always win over auto-detected ones.
+ */
+export function enrichTransaction(
+  signature: string,
+  protocol: string,
+  walletAddress: string,
+  mint: string | null,
+  amount: string | null,
+): boolean {
+  const result = db
+    .prepare(
+      `UPDATE transactions
+     SET protocol = ?, wallet_address = ?, mint = COALESCE(?, mint), amount = COALESCE(?, amount)
+     WHERE signature = ? AND (protocol = 'auto' OR wallet_address = 'auto')`,
+    )
+    .run(protocol, walletAddress, mint, amount, signature);
+  return result.changes > 0;
+}
+
 export function getUnsyncedTransactions(limit = 100): TransactionRecord[] {
   return db
     .prepare(
-      'SELECT * FROM transactions WHERE synced_at IS NULL ORDER BY created_at LIMIT ?',
+      `SELECT * FROM transactions
+       WHERE synced_at IS NULL AND sync_retries < ?
+       ORDER BY created_at LIMIT ?`,
     )
-    .all(limit) as TransactionRecord[];
+    .all(MAX_SYNC_RETRIES, limit) as TransactionRecord[];
 }
 
 export function markTransactionsSynced(ids: number[]): void {
@@ -665,7 +701,7 @@ export function markTransactionsSynced(ids: number[]): void {
   const now = new Date().toISOString();
   const placeholders = ids.map(() => '?').join(',');
   db.prepare(
-    `UPDATE transactions SET synced_at = ?, sync_error = NULL WHERE id IN (${placeholders})`,
+    `UPDATE transactions SET synced_at = ?, sync_error = NULL, sync_retries = 0 WHERE id IN (${placeholders})`,
   ).run(now, ...ids);
 }
 
@@ -673,7 +709,7 @@ export function markTransactionSyncError(ids: number[], error: string): void {
   if (ids.length === 0) return;
   const placeholders = ids.map(() => '?').join(',');
   db.prepare(
-    `UPDATE transactions SET sync_error = ? WHERE id IN (${placeholders})`,
+    `UPDATE transactions SET sync_error = ?, sync_retries = sync_retries + 1 WHERE id IN (${placeholders})`,
   ).run(error, ...ids);
 }
 

@@ -121,6 +121,32 @@ export function jupiterBase(): string {
 
 const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
 
+// ── Direct API sync (best-effort, non-blocking) ──────────────────────────────
+async function syncTransactionToApi(
+  signature: string,
+  protocol: string,
+  walletAddress: string,
+  mint?: string | null,
+  amount?: string | null,
+): Promise<void> {
+  const apiUrl =
+    process.env.TRANSACTION_SYNC_API_URL ||
+    'https://api.breeze.baby/agent/stats-sync-up';
+  const entry: Record<string, unknown> = { signature, protocol, wallet_address: walletAddress };
+  if (mint)   entry.mint   = mint;
+  if (amount) entry.amount = parseFloat(amount);
+  try {
+    await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transaction_entries: [entry] }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    // best-effort — IPC file is the durable fallback
+  }
+}
+
 function logTransactionIpc(
   signature: string,
   protocol: string,
@@ -147,6 +173,9 @@ function logTransactionIpc(
   } catch (err) {
     console.error(`[logTransactionIpc] Failed to log transaction: ${err instanceof Error ? err.message : String(err)}`);
   }
+
+  // Fire-and-forget direct API sync
+  void syncTransactionToApi(signature, protocol, walletAddress, mint, amount);
 }
 
 export { logTransactionIpc };

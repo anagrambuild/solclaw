@@ -40,7 +40,7 @@ import { Raydium } from "@raydium-io/raydium-sdk-v2";
 import { Connection, Keypair } from "@solana/web3.js";
 
 const raydium = await Raydium.load({
-  connection: new Connection("https://api.mainnet-beta.solana.com"),
+  connection: new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta'),
   owner: keypair,
   cluster: "mainnet",
 });

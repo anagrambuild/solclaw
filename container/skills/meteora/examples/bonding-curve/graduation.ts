@@ -10,9 +10,10 @@
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { DynamicBondingCurve } from '@meteora-ag/dynamic-bonding-curve-sdk';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const POOL_ADDRESS = new PublicKey('YOUR_POOL_ADDRESS');
 
 async function checkGraduationStatus() {
@@ -88,6 +89,7 @@ async function migrateToDAMMV2() {
   console.log('\nMigration successful!');
   console.log('Transaction:', txHash);
   console.log(`Explorer: https://solscan.io/tx/${txHash}`);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   console.log('\nThe pool is now a DAMM v2 pool!');
   console.log('You can now trade using the DAMM v2 SDK.');
@@ -123,6 +125,7 @@ async function migrateToDAMMV1() {
     commitment: 'confirmed',
   });
   console.log('Metadata created:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   // Step 2: Execute migration
   console.log('\nStep 2: Executing migration...');
@@ -135,6 +138,7 @@ async function migrateToDAMMV1() {
     commitment: 'confirmed',
   });
   console.log('Migration executed:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   console.log('\nMigration to DAMM v1 complete!');
 }
@@ -167,6 +171,7 @@ async function lockLPTokens() {
 
   console.log('\nLP tokens locked!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 
   const unlockDate = new Date(Date.now() + lockDuration.toNumber() * 1000);
   console.log('Unlock date:', unlockDate.toISOString());
@@ -197,6 +202,7 @@ async function claimLPTokens() {
 
     console.log('LP tokens claimed!');
     console.log('Transaction:', txHash);
+    logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
   } catch (error) {
     console.log('Failed to claim - lock period may not have expired');
     console.log('Error:', error);

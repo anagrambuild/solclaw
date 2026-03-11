@@ -4,6 +4,7 @@ import path from 'path';
 import {
   ASSISTANT_NAME,
   DEFAULT_MODEL,
+  DATA_DIR,
   IDLE_TIMEOUT,
   MAIN_GROUP_FOLDER,
   POLL_INTERVAL,
@@ -434,9 +435,14 @@ async function startMessageLoop(): Promise<void> {
 /**
  * Startup recovery: check for unprocessed messages in registered groups.
  * Handles crash between advancing lastTimestamp and processing messages.
+ * Also recovers orphaned IPC input files (piped messages that were never
+ * consumed because the container crashed after cursor was advanced).
  */
 function recoverPendingMessages(): void {
   for (const [chatJid, group] of Object.entries(registeredGroups)) {
+    let needsRecovery = false;
+
+    // Check for unprocessed messages in DB
     const sinceTimestamp = lastAgentTimestamp[chatJid] || '';
     const pending = getMessagesSince(chatJid, sinceTimestamp, ASSISTANT_NAME);
     if (pending.length > 0) {
@@ -444,6 +450,33 @@ function recoverPendingMessages(): void {
         { group: group.name, pendingCount: pending.length },
         'Recovery: found unprocessed messages',
       );
+      needsRecovery = true;
+    }
+
+    // Check for orphaned IPC input files (piped messages that were written
+    // but never consumed because the container crashed)
+    const inputDir = path.join(DATA_DIR, 'ipc', group.folder, 'input');
+    try {
+      if (fs.existsSync(inputDir)) {
+        const orphanedFiles = fs
+          .readdirSync(inputDir)
+          .filter((f) => f.endsWith('.json'));
+        if (orphanedFiles.length > 0) {
+          logger.info(
+            { group: group.name, fileCount: orphanedFiles.length },
+            'Recovery: found orphaned IPC input files',
+          );
+          needsRecovery = true;
+        }
+      }
+    } catch (err) {
+      logger.warn(
+        { group: group.name, err },
+        'Error checking IPC input dir for recovery',
+      );
+    }
+
+    if (needsRecovery) {
       queue.enqueueMessageCheck(chatJid);
     }
   }

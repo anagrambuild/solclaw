@@ -126,7 +126,7 @@ interface ClaimParams {
 import { Connection, PublicKey } from '@solana/web3.js';
 import { AlphaVault } from '@meteora-ag/alpha-vault';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const vaultAddress = new PublicKey('VAULT_ADDRESS');
 
 const alphaVault = await AlphaVault.create(connection, vaultAddress);

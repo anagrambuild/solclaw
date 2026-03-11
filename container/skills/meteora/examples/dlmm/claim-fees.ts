@@ -9,9 +9,10 @@
 
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 import DLMM from '@meteora-ag/dlmm';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const POOL_ADDRESS = new PublicKey('YOUR_POOL_ADDRESS');
 
 async function claimFeesAndRewards() {
@@ -69,6 +70,7 @@ async function claimFeesAndRewards() {
     });
 
     console.log('Fees claimed! Transaction:', feeTxHash);
+    logTransactionIpc(feeTxHash, 'meteora', wallet.publicKey.toString());
   } else {
     console.log('No fees to claim');
   }
@@ -92,6 +94,7 @@ async function claimFeesAndRewards() {
     });
 
     console.log('Rewards claimed! Transaction:', rewardTxHash);
+    logTransactionIpc(rewardTxHash, 'meteora', wallet.publicKey.toString());
   } else {
     console.log('\nNo LM rewards to claim');
   }
@@ -121,6 +124,7 @@ async function claimAllFromAllPositions() {
 
   const feesTxHash = await sendAndConfirmTransaction(connection, claimAllFeesTx, [wallet]);
   console.log('All fees claimed:', feesTxHash);
+  logTransactionIpc(feesTxHash, 'meteora', wallet.publicKey.toString());
 
   // Claim all LM rewards
   console.log('\nClaiming LM rewards from all positions...');
@@ -131,6 +135,7 @@ async function claimAllFromAllPositions() {
 
   const rewardsTxHash = await sendAndConfirmTransaction(connection, claimAllRewardsTx, [wallet]);
   console.log('All rewards claimed:', rewardsTxHash);
+  logTransactionIpc(rewardsTxHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Claim everything in one transaction
@@ -156,6 +161,7 @@ async function claimEverything() {
 
   const txHash = await sendAndConfirmTransaction(connection, claimAllTx, [wallet]);
   console.log('Everything claimed:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Run

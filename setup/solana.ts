@@ -1,21 +1,20 @@
 /**
  * Solana setup step
- * Configures Solana wallet with standard (local keypair) or Crossmint (custodial) signing
+ * Auto-generates a local keypair and configures Solana wallet
  */
 
-import { select, password, input, confirm } from '@inquirer/prompts';
+import { input, confirm, password } from '@inquirer/prompts';
 import fs from 'fs/promises';
 import path from 'path';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import chalk from 'chalk';
+import * as QRCode from 'qrcode';
 import { emitStatus } from './status.js';
 
 /**
  * Parse CLI args into a key-value map.
- * Supports: --signing standard --key-source generate --network mainnet --slippage 50
- *           --private-key <key> --key-path <path> --rpc-url <url>
- *           --crossmint-key <key> --crossmint-env production --public-key <key>
+ * Supports: --network mainnet --slippage 50 --rpc-url <url>
  *           --dflow-key <key> --jupiter-key <key> --breeze-key <key> --helius-key <key>
  */
 function parseArgs(args: string[]): Record<string, string> {
@@ -29,212 +28,81 @@ function parseArgs(args: string[]): Record<string, string> {
   return result;
 }
 
+/**
+ * Generate and display a QR code in the terminal for a Solana address
+ */
+export async function displayWalletQR(address: string): Promise<void> {
+  const solanaPayUrl = `solana:${address}`;
+  const qrText = await QRCode.toString(solanaPayUrl, { type: 'terminal', small: true });
+  console.log(qrText);
+  console.log(chalk.cyan(`  ${address}\n`));
+}
+
 export async function run(args: string[]): Promise<void> {
   console.log(chalk.cyan.bold('\n🦀 Solana Configuration\n'));
-  console.log('Configure wallet and enable Solana protocol operations.\n');
+  console.log('Auto-generating wallet keypair.\n');
 
   emitStatus('SOLANA_SETUP', { STATUS: 'starting' });
 
-  // Parse CLI args for non-interactive mode
   const cliArgs = parseArgs(args);
-  const nonInteractive = !!cliArgs.signing;
+  const nonInteractive = !!cliArgs.network;
 
   try {
-    // Step 1: Signing Method
-    console.log(chalk.yellow('Step 1: Signing Method'));
+    // Step 1: Auto-generate keypair
+    console.log(chalk.yellow('Step 1: Generating Wallet'));
 
-    const signingMethod: 'standard' | 'crossmint' = cliArgs.signing
-      ? (cliArgs.signing as 'standard' | 'crossmint')
-      : await select({
-          message: 'How should transactions be signed?',
-          choices: [
-            {
-              name: 'Standard (local keypair) — recommended',
-              value: 'standard' as const,
-            },
-            {
-              name: 'Crossmint (custodial API)',
-              value: 'crossmint' as const,
-            },
-          ],
-        });
+    const keypair = Keypair.generate();
+    const privateKey = bs58.encode(keypair.secretKey);
+    const publicKey = keypair.publicKey.toBase58();
 
-    let publicKey: string;
-    let privateKey: string | undefined;
-    let crossmintApiKey: string | undefined;
-    let crossmintEnvironment: string | undefined;
+    console.log(chalk.green('\n✓ New keypair generated!\n'));
 
-    if (signingMethod === 'standard') {
-      // Standard path: local keypair
-      console.log(chalk.yellow('\nStep 2: Wallet Configuration'));
+    console.log(chalk.red.bold('╔══════════════════════════════════════════════════════════════════╗'));
+    console.log(chalk.red.bold('║                                                                  ║'));
+    console.log(chalk.red.bold('║   SAVE YOUR PRIVATE KEY NOW — YOU WILL NOT SEE IT AGAIN          ║'));
+    console.log(chalk.red.bold('║                                                                  ║'));
+    console.log(chalk.red.bold('╚══════════════════════════════════════════════════════════════════╝'));
 
-      const keySource = cliArgs['key-source']
-        ? cliArgs['key-source']
-        : await select({
-            message: 'How would you like to provide the private key?',
-            choices: [
-              {
-                name: 'Paste base58 private key (recommended)',
-                value: 'base58',
-              },
-              {
-                name: 'Load from keypair JSON file',
-                value: 'file',
-              },
-              {
-                name: 'Generate new keypair',
-                value: 'generate',
-              },
-            ],
-          });
+    console.log('');
+    console.log(chalk.white.bold('  Public Key'));
+    console.log(chalk.cyan(`  ${publicKey}`));
+    console.log('');
+    console.log(chalk.white.bold('  Private Key'));
+    console.log(chalk.yellow(`  ${privateKey}`));
+    console.log('');
+    console.log(chalk.gray('  Copy your private key and store it somewhere safe (password'));
+    console.log(chalk.gray('  manager, encrypted note, etc). This is the ONLY time it will'));
+    console.log(chalk.gray('  be displayed. If you lose it, the wallet and any funds in'));
+    console.log(chalk.gray('  it are gone forever.'));
+    console.log('');
 
-      if (keySource === 'base58') {
-        privateKey = cliArgs['private-key']
-          ? cliArgs['private-key']
-          : await password({
-              message: 'Paste base58 private key:',
-              validate: (value) => {
-                try {
-                  const decoded = bs58.decode(value);
-                  return decoded.length === 64 ? true : 'Invalid key length (expected 64 bytes)';
-                } catch {
-                  return 'Invalid base58 format';
-                }
-              },
-            });
-
-        // Validate the key
-        try {
-          const decoded = bs58.decode(privateKey);
-          if (decoded.length !== 64) throw new Error('Invalid key length (expected 64 bytes)');
-        } catch (e) {
-          throw new Error(`Invalid base58 private key: ${e instanceof Error ? e.message : String(e)}`);
-        }
-
-        const secretKey = bs58.decode(privateKey);
-        const keypair = Keypair.fromSecretKey(secretKey);
-        publicKey = keypair.publicKey.toBase58();
-
-        console.log(chalk.green('\n✓ Keypair validated'));
-        console.log(chalk.white(`  Public Key: ${publicKey}\n`));
-      } else if (keySource === 'file') {
-        const keypath = cliArgs['key-path']
-          ? cliArgs['key-path']
-          : await input({
-              message: 'Path to keypair JSON file:',
-              default: '~/.config/solana/id.json',
-            });
-
-        const expandedPath = keypath.replace(/^~/, process.env.HOME || process.env.USERPROFILE || '');
-        const keypairData = JSON.parse(await fs.readFile(expandedPath, 'utf-8'));
-        const keypair = Keypair.fromSecretKey(Uint8Array.from(keypairData));
-        privateKey = bs58.encode(keypair.secretKey);
-        publicKey = keypair.publicKey.toBase58();
-
-        console.log(chalk.green('\n✓ Keypair loaded from file'));
-        console.log(chalk.white(`  Public Key: ${publicKey}\n`));
-      } else {
-        const keypair = Keypair.generate();
-        privateKey = bs58.encode(keypair.secretKey);
-        publicKey = keypair.publicKey.toBase58();
-
-        console.log(chalk.green('\n✓ New keypair generated!'));
-        console.log(chalk.yellow('\n⚠️  SAVE THIS PRIVATE KEY - You will not see it again!\n'));
-        console.log(chalk.white(`Public Key:  ${chalk.cyan(publicKey)}`));
-        console.log(chalk.white(`Private Key: ${chalk.cyan(privateKey)}\n`));
-        console.log(chalk.gray('Fund your wallet before using:'));
-        console.log(chalk.gray(`  solana airdrop 1 ${publicKey}\n`));
-      }
-    } else {
-      // Crossmint path
-      console.log(chalk.yellow('\nStep 2: Crossmint Configuration'));
-
-      crossmintApiKey = cliArgs['crossmint-key']
-        ? cliArgs['crossmint-key']
-        : await password({
-            message: 'Crossmint API key:',
-            validate: (value) => value.length > 0 ? true : 'API key is required',
-          });
-
-      crossmintEnvironment = cliArgs['crossmint-env']
-        ? cliArgs['crossmint-env']
-        : await select({
-            message: 'Crossmint environment:',
-            choices: [
-              { name: 'Production', value: 'production' },
-              { name: 'Staging', value: 'staging' },
-            ],
-          });
-
-      publicKey = cliArgs['public-key']
-        ? cliArgs['public-key']
-        : await input({
-            message: 'Wallet public key (or leave blank to create via Crossmint):',
-            default: '',
-          });
-
-      if (!publicKey) {
-        console.log(chalk.yellow('\nNote: A wallet will be created via Crossmint on first use.'));
-        publicKey = 'pending-crossmint-creation';
-      }
-    }
-
-    // Step 3: RPC Configuration
-    console.log(chalk.yellow('\nStep 3: RPC Configuration'));
-
-    const networkChoice = cliArgs.network
-      ? cliArgs.network
-      : await select({
-          message: 'Select Solana network:',
-          choices: [
-            { name: 'Mainnet (Production - real SOL)', value: 'mainnet' },
-            { name: 'Devnet (Testing - free airdrops available)', value: 'devnet' },
-            { name: 'Testnet', value: 'testnet' },
-            { name: 'Custom RPC URL', value: 'custom' },
-          ],
-        });
+    // Step 2: RPC Configuration
+    console.log(chalk.yellow('Step 2: RPC Configuration'));
 
     let rpcUrl: string;
 
-    if (networkChoice === 'mainnet') {
+    if (cliArgs.network === 'mainnet' || (!cliArgs.network && nonInteractive)) {
       rpcUrl = 'https://api.breeze.baby/agent/rpc-mainnet-beta';
       console.log(chalk.cyan('Using Mainnet'));
-    } else if (networkChoice === 'devnet') {
+    } else if (cliArgs.network === 'devnet') {
       rpcUrl = 'https://api.devnet.solana.com';
-      console.log(chalk.cyan('Using Devnet (recommended for testing)'));
-      if (signingMethod === 'standard') {
-        console.log(chalk.gray('Get free SOL: solana airdrop 1 ' + publicKey + ' --url devnet'));
-      }
-    } else if (networkChoice === 'testnet') {
+      console.log(chalk.cyan('Using Devnet'));
+      console.log(chalk.gray('Get free SOL: solana airdrop 1 ' + publicKey + ' --url devnet'));
+    } else if (cliArgs.network === 'testnet') {
       rpcUrl = 'https://api.testnet.solana.com';
       console.log(chalk.cyan('Using Testnet'));
     } else if (cliArgs['rpc-url']) {
       rpcUrl = cliArgs['rpc-url'];
     } else {
-      rpcUrl = await input({
-        message: 'Enter custom RPC URL:',
-        default: 'https://api.breeze.baby/agent/rpc-mainnet-beta',
-        validate: (value) => {
-          return value.startsWith('http') ? true : 'Must be a valid HTTP(S) URL';
-        },
-      });
+      // Default to mainnet
+      rpcUrl = 'https://api.breeze.baby/agent/rpc-mainnet-beta';
+      console.log(chalk.cyan('Using Mainnet (default)'));
     }
 
-    const defaultSlippage = cliArgs.slippage
-      ? cliArgs.slippage
-      : nonInteractive
-        ? '50'
-        : await input({
-            message: 'Default slippage (basis points):',
-            default: '50',
-            validate: (value) => {
-              const num = parseInt(value);
-              return num >= 0 && num <= 1000 ? true : 'Must be between 0 and 1000';
-            },
-          });
+    const defaultSlippage = cliArgs.slippage || '50';
 
-    // Step 4: Optional Protocol API Keys
-    console.log(chalk.yellow('\nStep 4: Optional Protocol API Keys'));
+    // Step 3: Optional Protocol API Keys
+    console.log(chalk.yellow('\nStep 3: Optional Protocol API Keys'));
     console.log(chalk.gray('These are optional. The agent works without them but some protocols offer better rates or features with an API key.\n'));
 
     const protocolKeys: Record<string, string> = {};
@@ -282,11 +150,9 @@ export async function run(args: string[]): Promise<void> {
     // Build config
     const config: Record<string, any> = {
       wallet: {
-        signingMethod,
+        signingMethod: 'standard',
         publicKey,
-        ...(privateKey && { privateKey }),
-        ...(crossmintApiKey && { crossmintApiKey }),
-        ...(crossmintEnvironment && { crossmintEnvironment }),
+        privateKey,
       },
       preferences: {
         rpcUrl,
@@ -307,17 +173,10 @@ export async function run(args: string[]): Promise<void> {
       '# Generated during setup',
       '',
       `SOLANA_RPC_URL=${rpcUrl}`,
-      `SOLANA_SIGNING_METHOD=${signingMethod}`,
+      `SOLANA_SIGNING_METHOD=standard`,
+      `SOLANA_PRIVATE_KEY=${privateKey}`,
+      '',
     ];
-
-    if (privateKey) {
-      envLines.push(`SOLANA_PRIVATE_KEY=${privateKey}`);
-    }
-    if (crossmintApiKey) {
-      envLines.push(`CROSSMINT_API_KEY=${crossmintApiKey}`);
-    }
-
-    envLines.push('');
 
     const envPath = path.join(process.cwd(), '.env.solana');
     await fs.writeFile(envPath, envLines.join('\n'));
@@ -336,7 +195,6 @@ export async function run(args: string[]): Promise<void> {
       if (existing && !existing.endsWith('\n')) newLines.push('');
       newLines.push('# Protocol API Keys (added by Solana setup)');
       for (const [key, value] of Object.entries(protocolKeys)) {
-        // Remove existing line for this key if present
         if (existing.includes(`${key}=`)) {
           existing = existing
             .split('\n')
@@ -350,27 +208,38 @@ export async function run(args: string[]): Promise<void> {
       await fs.writeFile(mainEnvPath, existing + newLines.join('\n'));
     }
 
-    // Summary
+    // Summary with QR code
     console.log(chalk.green.bold('\n✅ Solana Configuration Complete!\n'));
-    console.log(chalk.white('Configuration saved to:'));
-    console.log(chalk.cyan(`  ${configPath}`));
-    console.log(chalk.cyan(`  ${envPath}\n`));
 
-    console.log(chalk.white(`Signing method: ${chalk.cyan(signingMethod)}`));
-    console.log(chalk.white(`Network: ${chalk.cyan(rpcUrl)}\n`));
+    console.log(chalk.white.bold('  Wallet Summary'));
+    console.log(chalk.white(`  Address:         ${chalk.cyan(publicKey)}`));
+    console.log(chalk.white(`  Signing Method:  ${chalk.cyan('Standard (local keypair)')}`));
+    console.log(chalk.white(`  Network:         ${chalk.cyan(rpcUrl)}`));
+    console.log('');
 
-    console.log(chalk.white('Your agent can now:'));
+    console.log(chalk.white.bold('  Config Files'));
+    console.log(chalk.gray(`  ${configPath}`));
+    console.log(chalk.gray(`  ${envPath}`));
+    console.log('');
+
+    console.log(chalk.white.bold('  Capabilities'));
     console.log(chalk.cyan('  • Check wallet balances'));
     console.log(chalk.cyan('  • Get token prices via Jupiter'));
     console.log(chalk.cyan('  • Swap tokens via Jupiter Ultra'));
     console.log(chalk.cyan('  • Transfer SOL and SPL tokens'));
-    console.log(chalk.cyan('  • Access DeFi protocols via skills\n'));
+    console.log(chalk.cyan('  • Access DeFi protocols via skills'));
+    console.log('');
+
+    console.log(chalk.white.bold('  Fund Your Wallet (scan QR or send SOL to address):'));
+    await displayWalletQR(publicKey);
+
+    console.log(chalk.yellow('  Send SOL to this address to start trading.\n'));
 
     emitStatus('SOLANA_SETUP', {
       STATUS: 'complete',
       PUBLIC_KEY: publicKey,
       RPC_URL: rpcUrl,
-      SIGNING_METHOD: signingMethod,
+      SIGNING_METHOD: 'standard',
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

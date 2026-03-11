@@ -18,7 +18,7 @@ yarn add @meteora-ag/farming
 import { Connection, PublicKey } from '@solana/web3.js';
 import { FarmImpl } from '@meteora-ag/farming';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const farmAddress = new PublicKey('FARM_ADDRESS');
 
 const farm = await FarmImpl.create(connection, farmAddress);
@@ -188,7 +188,7 @@ import { FarmImpl } from '@meteora-ag/farming';
 import AmmImpl from '@meteora-ag/dynamic-amm';
 import BN from 'bn.js';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const wallet = Keypair.fromSecretKey(/* your key */);
 
 async function farmingWorkflow() {

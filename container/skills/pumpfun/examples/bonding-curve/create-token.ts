@@ -19,6 +19,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import * as fs from 'fs';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Program IDs
 const PUMP_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
@@ -173,6 +174,8 @@ async function createToken(
     [payer, mint],
     { commitment: 'confirmed' }
   );
+
+  logTransactionIpc(signature, 'pumpfun', payer.publicKey.toString(), mint.publicKey.toString());
 
   console.log('\n=== Token Created Successfully ===');
   console.log('Signature:', signature);

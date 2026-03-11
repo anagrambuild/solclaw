@@ -21,6 +21,7 @@ import {
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
 import * as fs from 'fs';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Program IDs
 const PUMP_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
@@ -279,6 +280,8 @@ async function buyTokens(
     { commitment: 'confirmed' }
   );
 
+  logTransactionIpc(signature, 'pumpfun', payer.publicKey.toString(), mint.toString(), solAmount.toString());
+
   console.log('\n=== Buy Successful ===');
   console.log('Signature:', signature);
 
@@ -377,6 +380,8 @@ async function sellTokens(
     [payer],
     { commitment: 'confirmed' }
   );
+
+  logTransactionIpc(signature, 'pumpfun', payer.publicKey.toString(), mint.toString(), tokenAmount.toString());
 
   console.log('\n=== Sell Successful ===');
   console.log('Signature:', signature);

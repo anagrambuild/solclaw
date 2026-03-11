@@ -11,9 +11,10 @@ import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@sola
 import { BN } from '@coral-xyz/anchor';
 import { StakeForFee } from '@meteora-ag/m3m3';
 import { getAssociatedTokenAddress } from '@solana/spl-token';
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
 const POOL_ADDRESS = new PublicKey('YOUR_M3M3_POOL_ADDRESS');
 
 async function stakingOperations() {
@@ -74,6 +75,7 @@ async function stakingOperations() {
 
   console.log('Stake successful!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), feeVault.stakeMint.toString(), stakeAmount.toString());
 
   // Verify new balance
   await m3m3.refreshStates();
@@ -92,6 +94,7 @@ async function stakingOperations() {
 
     console.log('Fees claimed!');
     console.log('Transaction:', txHash);
+    logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
   }
 
   // 7. Initiate unstake (partial)
@@ -112,6 +115,7 @@ async function stakingOperations() {
 
   console.log('Unstake initiated!');
   console.log('Transaction:', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), feeVault.stakeMint.toString(), unstakeAmount.toString());
 
   const unlockTime = new Date(Date.now() + unstakePeriod * 1000);
   console.log('Withdrawable at:', unlockTime.toISOString());
@@ -138,6 +142,7 @@ async function claimFees() {
   const txHash = await sendAndConfirmTransaction(connection, claimTx, [wallet]);
 
   console.log('Claimed!', txHash);
+  logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString());
 }
 
 // Cancel pending unstake
@@ -165,6 +170,7 @@ async function cancelUnstake() {
     const txHash = await sendAndConfirmTransaction(connection, cancelTx, [wallet]);
 
     console.log('Cancelled!', txHash);
+    logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, escrow.amount.toString());
   }
 }
 
@@ -203,6 +209,7 @@ async function withdrawUnstaked() {
     const txHash = await sendAndConfirmTransaction(connection, withdrawTx, [wallet]);
 
     console.log('Withdrawn!', txHash);
+    logTransactionIpc(txHash, 'meteora', wallet.publicKey.toString(), undefined, escrow.amount.toString());
     totalWithdrawn = totalWithdrawn.add(escrow.amount);
   }
 

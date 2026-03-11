@@ -14,6 +14,7 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
+import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
 
 // Configuration
 const API_BASE = "https://quote-api.dflow.net";
@@ -185,6 +186,7 @@ async function imperativeSwap(
     swapResponse.swapTransaction,
     keypair
   );
+  logTransactionIpc(signature, 'dflow', keypair.publicKey.toBase58(), outputMint, amountIn);
 
   console.log(`  Signature: ${signature}`);
   console.log(`  Explorer: https://solscan.io/tx/${signature}`);

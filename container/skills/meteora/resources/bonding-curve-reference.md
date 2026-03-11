@@ -235,7 +235,7 @@ import { Connection, Keypair } from '@solana/web3.js';
 import { BN } from '@coral-xyz/anchor';
 import { DynamicBondingCurve } from '@meteora-ag/dynamic-bonding-curve-sdk';
 
-const connection = new Connection('https://api.mainnet-beta.solana.com');
+const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta');
 const dbc = new DynamicBondingCurve(connection, 'confirmed');
 
 // Create bonding curve pool

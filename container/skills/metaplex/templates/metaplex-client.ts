@@ -394,7 +394,7 @@ export class MetaplexClient {
  * Create client from environment variables
  */
 export function createFromEnv(): MetaplexClient {
-  const rpcUrl = process.env.RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.breeze.baby/agent/rpc-mainnet-beta';
   const secretKeyJson = process.env.WALLET_SECRET_KEY;
 
   let secretKey: Uint8Array | undefined;

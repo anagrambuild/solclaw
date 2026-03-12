@@ -115,3 +115,109 @@ Prefer `bidsL2()` / `asksL2()` for UI and price-display flows.
 - Use `getSetupIxs(...)` for wallet-adapter flows
 - Use `getClientForMarket(...)` for signer-controlled automation
 - Use `placeOrderWithRequiredDepositIxs(...)` when you want the SDK to help calculate missing funding for a local or global order
+
+---
+
+## Agent/Bot Integration Patterns (from real-world usage)
+
+### ESM/CJS interop: use `createRequire`
+
+`@bonasa-tech/manifest-sdk` is a CJS package. In ESM TypeScript projects (`"type": "module"`), import it with `createRequire`:
+
+```typescript
+// @ts-nocheck
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { ManifestClient, OrderType, Market } = require('@bonasa-tech/manifest-sdk');
+```
+
+### RPC without WebSocket support (405 errors)
+
+`getClientForMarket(...)` calls `sendAndConfirmTransaction` internally, which requires a WebSocket connection. If your RPC returns 405 on WS upgrades, patch `connection.confirmTransaction` before calling the SDK:
+
+```typescript
+connection.confirmTransaction = async (sigOrStrategy: any) => {
+  const sig = typeof sigOrStrategy === 'string' ? sigOrStrategy : sigOrStrategy?.signature ?? sigOrStrategy;
+  const start = Date.now();
+  while (Date.now() - start < 90000) {
+    const { value } = await connection.getSignatureStatus(sig, { searchTransactionHistory: true });
+    if (value?.confirmationStatus === 'confirmed' || value?.confirmationStatus === 'finalized') {
+      return { context: { slot: value.slot }, value: value.err ?? null } as any;
+    }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  return { context: { slot: 0 }, value: null } as any;
+};
+```
+
+### `depositIx` panics: "range end index 32 out of range for slice of length 0"
+
+**Cause:** For native SOL (wSOL mint), `depositIx` expects the trader's wSOL ATA to already exist and be funded. The wrapper program panics reading empty account data when the ATA is missing.
+
+**Solution:** Create and fund the wSOL ATA before calling `depositIx`:
+
+```typescript
+import { createAssociatedTokenAccountIdempotentInstruction, createSyncNativeInstruction, createCloseAccountInstruction, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { SystemProgram } from '@solana/web3.js';
+
+const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
+const wsolAta = getAssociatedTokenAddressSync(SOL_MINT, payer.publicKey, false, TOKEN_PROGRAM_ID);
+const lamports = Math.round(amountSol * 1e9);
+
+// Step 1: Create ATA, transfer SOL, sync native
+const wrapTx = new Transaction()
+  .add(createAssociatedTokenAccountIdempotentInstruction(payer.publicKey, wsolAta, payer.publicKey, SOL_MINT))
+  .add(SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: wsolAta, lamports }))
+  .add(createSyncNativeInstruction(wsolAta, TOKEN_PROGRAM_ID));
+// send wrapTx...
+
+// Step 2: Now depositIx will work
+const depositIx = client.depositIx(payer.publicKey, SOL_MINT, amountSol);
+
+// Step 3: After withdrawing SOL back, close the ATA to reclaim rent
+const closeTx = new Transaction().add(
+  createCloseAccountInstruction(wsolAta, payer.publicKey, payer.publicKey, [], TOKEN_PROGRAM_ID)
+);
+```
+
+### Picking the right market from `listMarketsForMints`
+
+`listMarketsForMints` returns all markets for a pair — many may have no liquidity. Always pick the one with active bids and asks:
+
+```typescript
+const markets = await ManifestClient.listMarketsForMints(connection, baseMint, quoteMint);
+let marketPk = markets[0];
+let market = await Market.loadFromAddress({ connection, address: marketPk });
+
+for (const mkt of markets.slice(1)) {
+  const m = await Market.loadFromAddress({ connection, address: mkt });
+  if (m.bestBidPrice() !== undefined && m.bestAskPrice() !== undefined) {
+    marketPk = mkt;
+    market = m;
+    break;
+  }
+}
+```
+
+### `withdrawAllIx()` returns empty array — "No instructions" error
+
+`withdrawAllIx()` returns nothing if the wrapper has no pending balance. After a trade, reload market state and use `withdrawIx` per token:
+
+```typescript
+await client.market.reload(connection);
+const usdcBal = client.market.getWithdrawableBalanceTokens(payer.publicKey, false); // false = quote
+const solBal  = client.market.getWithdrawableBalanceTokens(payer.publicKey, true);  // true = base
+
+const ixs = [];
+if (usdcBal > 0) ixs.push(client.withdrawIx(payer.publicKey, USDC_MINT, usdcBal));
+if (solBal  > 0) ixs.push(client.withdrawIx(payer.publicKey, SOL_MINT,  solBal));
+if (ixs.length > 0) await sendTx(new Transaction().add(...ixs));
+```
+
+### IOC orders partially fill — always withdraw both tokens
+
+`OrderType.ImmediateOrCancel` fills against available orderbook depth and cancels the remainder. The unfilled base tokens are returned to the wrapper balance. Always withdraw both base and quote after an IOC sell order.
+
+### Wrapper seat is market-specific
+
+Each market requires its own seat on the wrapper. `getClientForMarket(...)` auto-claims a seat for the given market if needed. When switching between markets in a script, call `getClientForMarket(...)` fresh for each market rather than reusing the same client.

@@ -30,6 +30,14 @@ and after claude code has been started run ```/setup ``` in the claude code itse
 - "Deploy a new token"
 - "Show trending tokens"
 
+## Contributing
+
+Want to add a protocol? See [CONTRIBUTING.md](CONTRIBUTING.md). In short:
+
+1. Add a skill in `container/skills/<your-protocol>/`
+2. Add your program ID(s) to `container/solana-tx-preload.cjs`
+3. Submit a PR with proof it works (screenshot from WhatsApp, Telegram, or terminal)
+
 ## Built With
 
 - [Solana Agent Kit](https://github.com/sendaifun/solana-agent-kit) - 60+ protocol actions

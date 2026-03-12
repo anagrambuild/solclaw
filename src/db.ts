@@ -680,7 +680,7 @@ export function enrichTransaction(
     .prepare(
       `UPDATE transactions
      SET protocol = ?, wallet_address = ?, mint = COALESCE(?, mint), amount = COALESCE(?, amount)
-     WHERE signature = ? AND (protocol = 'auto' OR wallet_address = 'auto')`,
+     WHERE signature = ? AND (protocol IS NULL OR wallet_address IS NULL OR protocol = 'auto' OR wallet_address = 'auto')`,
     )
     .run(protocol, walletAddress, mint, amount, signature);
   return result.changes > 0;

@@ -63,7 +63,9 @@ interface SDKUserMessage {
 
 const IPC_INPUT_DIR = '/workspace/ipc/input';
 const IPC_INPUT_CLOSE_SENTINEL = path.join(IPC_INPUT_DIR, '_close');
+const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
 const IPC_POLL_MS = 500;
+const SYNC_API_URL = 'https://api.breeze.baby/agent/stats-sync-up';
 
 /**
  * Push-based async iterable for streaming user messages to the SDK.
@@ -593,6 +595,58 @@ This applies to ALL transaction types: swaps, transfers, stakes, account creatio
   return { newSessionId, lastAssistantUuid, closedDuringQuery };
 }
 
+/**
+ * Drain leftover IPC transaction files and sync them to the API.
+ * Covers cases where scripts wrote IPC files directly (bypassing
+ * the preload and logTransactionIpc), or the preload's API sync failed.
+ */
+async function drainIpcTransactions(): Promise<void> {
+  let files: string[];
+  try {
+    files = fs.readdirSync(IPC_TRANSACTIONS_DIR).filter(f => f.endsWith('.json'));
+  } catch {
+    return;
+  }
+  if (files.length === 0) return;
+
+  log(`Draining ${files.length} leftover IPC transaction file(s)...`);
+  const entries: Record<string, unknown>[] = [];
+
+  for (const file of files) {
+    const filePath = path.join(IPC_TRANSACTIONS_DIR, file);
+    try {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      if (data.signature) {
+        const entry: Record<string, unknown> = {
+          signature: data.signature,
+          protocol: data.protocol || null,
+          wallet_address: data.wallet_address || data.wallet || null,
+        };
+        if (data.mint) entry.mint = data.mint;
+        if (data.amount) entry.amount = parseFloat(data.amount);
+        entries.push(entry);
+      }
+      fs.unlinkSync(filePath);
+    } catch {
+      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+    }
+  }
+
+  if (entries.length === 0) return;
+
+  try {
+    await fetch(SYNC_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transaction_entries: entries }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    log(`Synced ${entries.length} leftover transaction(s) to API`);
+  } catch (err) {
+    log(`Failed to sync leftover transactions: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 async function main(): Promise<void> {
   let containerInput: ContainerInput;
 
@@ -645,6 +699,11 @@ async function main(): Promise<void> {
     log(`Draining ${pending.length} pending IPC messages into initial prompt`);
     prompt += '\n' + pending.join('\n');
   }
+
+  // Periodically drain IPC transaction files during the session
+  const txDrainInterval = setInterval(() => {
+    drainIpcTransactions().catch(() => {});
+  }, 60_000);
 
   // Query loop: run query → wait for IPC message → run new query → repeat
   let resumeAt: string | undefined;
@@ -701,8 +760,13 @@ async function main(): Promise<void> {
       newSessionId: sessionId,
       error: errorMessage,
     });
+    clearInterval(txDrainInterval);
+    await drainIpcTransactions();
     process.exit(1);
   }
+
+  clearInterval(txDrainInterval);
+  await drainIpcTransactions();
 }
 
 main();

@@ -137,24 +137,29 @@ export function startIpcWatcher(deps: IpcDeps): void {
             const filePath = path.join(transactionsDir, file);
             try {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+              // Accept "wallet" as fallback for "wallet_address" (agents sometimes use the wrong field name)
+              const walletAddress = data.wallet_address || data.wallet || null;
               if (
                 data.type === 'log_transaction' &&
                 data.signature &&
                 data.protocol &&
-                data.wallet_address
+                walletAddress
               ) {
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
-                  // If existing record has degraded 'auto' data and this one has real data, upgrade it
+                  // If existing record has incomplete data and this one has better data, upgrade it
                   if (
                     data.protocol !== 'auto' &&
-                    (existing.protocol === 'auto' ||
+                    walletAddress !== 'auto' &&
+                    (!existing.protocol ||
+                      !existing.wallet_address ||
+                      existing.protocol === 'auto' ||
                       existing.wallet_address === 'auto')
                   ) {
                     enrichTransaction(
                       data.signature,
                       data.protocol,
-                      data.wallet_address,
+                      walletAddress,
                       data.mint || null,
                       data.amount || null,
                     );
@@ -164,7 +169,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                         protocol: data.protocol,
                         sourceGroup,
                       },
-                      'Transaction enriched from auto to explicit',
+                      'Transaction enriched with detected data',
                     );
                   } else {
                     logger.debug(
@@ -181,7 +186,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     signature: data.signature,
                     protocol: data.protocol,
                     mint: data.mint || null,
-                    wallet_address: data.wallet_address,
+                    wallet_address: walletAddress,
                     amount: data.amount || null,
                     created_at: data.timestamp || new Date().toISOString(),
                   });

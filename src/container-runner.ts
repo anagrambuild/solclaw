@@ -188,14 +188,23 @@ function buildVolumeMounts(
  * Secrets are never written to disk or mounted as files.
  */
 function readSecrets(): Record<string, string> {
-  return readEnvFile([
+  const secrets = readEnvFile([
     'CLAUDE_CODE_OAUTH_TOKEN',
     'ANTHROPIC_API_KEY',
     'DFLOW_API_KEY',
     'JUPITER_API_KEY',
     'BREEZE_API_KEY',
     'HELIUS_API_KEY',
+    'SOLCLAW_WALLET_PRIVATE_KEY',
   ]);
+
+  // Also check process.env for dashboard-injected wallet key
+  // (cloud deployments set this directly, not via .env)
+  if (!secrets.SOLCLAW_WALLET_PRIVATE_KEY && process.env.SOLCLAW_WALLET_PRIVATE_KEY) {
+    secrets.SOLCLAW_WALLET_PRIVATE_KEY = process.env.SOLCLAW_WALLET_PRIVATE_KEY;
+  }
+
+  return secrets;
 }
 
 function buildContainerArgs(mounts: VolumeMount[], containerName: string): string[] {

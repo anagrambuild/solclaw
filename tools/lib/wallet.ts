@@ -86,6 +86,25 @@ export interface WalletConfig {
 }
 
 export function loadWallet(configPath = 'config/solana-config.json'): WalletConfig {
+  // Dashboard-injected key takes priority over config file
+  const injectedKey = process.env.SOLCLAW_WALLET_PRIVATE_KEY;
+  if (injectedKey) {
+    const secretKey = bs58.decode(injectedKey);
+    const keypair = Keypair.fromSecretKey(secretKey);
+
+    // Still read config for RPC URL preference if available
+    let rpcUrl = 'https://api.breeze.baby/agent/rpc-mainnet-beta';
+    try {
+      const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (raw.preferences?.rpcUrl) rpcUrl = raw.preferences.rpcUrl;
+    } catch {
+      // No config file — use default RPC
+    }
+
+    const connection = new Connection(rpcUrl, 'confirmed');
+    return { keypair, connection, publicKey: keypair.publicKey, rpcUrl };
+  }
+
   const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
   const method = raw.wallet?.signingMethod ?? (raw.wallet?.provider === 'solana-agent-kit' ? 'standard' : raw.wallet?.signingMethod);

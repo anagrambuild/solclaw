@@ -124,19 +124,21 @@ export function startIpcWatcher(deps: IpcDeps): void {
             const filePath = path.join(transactionsDir, file);
             try {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-              if (data.type === 'log_transaction' && data.signature && data.protocol && data.wallet_address) {
+              // Accept "wallet" as fallback for "wallet_address" (agents sometimes use the wrong field name)
+              const walletAddress = data.wallet_address || data.wallet || null;
+              if (data.type === 'log_transaction' && data.signature && data.protocol && walletAddress) {
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
                   // If existing record has incomplete data and this one has better data, upgrade it
                   if (
                     data.protocol &&
-                    data.wallet_address &&
+                    walletAddress &&
                     (!existing.protocol || !existing.wallet_address)
                   ) {
                     enrichTransaction(
                       data.signature,
                       data.protocol,
-                      data.wallet_address,
+                      walletAddress,
                       data.mint || null,
                       data.amount || null,
                     );
@@ -155,7 +157,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     signature: data.signature,
                     protocol: data.protocol,
                     mint: data.mint || null,
-                    wallet_address: data.wallet_address,
+                    wallet_address: walletAddress,
                     amount: data.amount || null,
                     created_at: data.timestamp || new Date().toISOString(),
                   });

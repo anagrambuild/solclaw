@@ -10,7 +10,15 @@ import {
   TIMEZONE,
 } from './config.js';
 import { AvailableGroup } from './container-runner.js';
-import { createTask, deleteTask, enrichTransaction, getTaskById, getTransactionBySignature, logTransaction, updateTask } from './db.js';
+import {
+  createTask,
+  deleteTask,
+  enrichTransaction,
+  getTaskById,
+  getTransactionBySignature,
+  logTransaction,
+  updateTask,
+} from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
@@ -19,6 +27,7 @@ export interface IpcDeps {
   sendMessage: (jid: string, text: string) => Promise<void>;
   registeredGroups: () => Record<string, RegisteredGroup>;
   registerGroup: (jid: string, group: RegisteredGroup) => void;
+  updateGroupModel: (groupFolder: string, model?: string) => boolean;
   syncGroupMetadata: (force: boolean) => Promise<void>;
   getAvailableGroups: () => AvailableGroup[];
   writeGroupsSnapshot: (
@@ -61,7 +70,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
       const isMain = sourceGroup === MAIN_GROUP_FOLDER;
       const messagesDir = path.join(ipcBaseDir, sourceGroup, 'messages');
       const tasksDir = path.join(ipcBaseDir, sourceGroup, 'tasks');
-      const transactionsDir = path.join(ipcBaseDir, sourceGroup, 'transactions');
+      const transactionsDir = path.join(
+        ipcBaseDir,
+        sourceGroup,
+        'transactions',
+      );
 
       // Process messages from this group's IPC directory
       try {
@@ -126,14 +139,22 @@ export function startIpcWatcher(deps: IpcDeps): void {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
               // Accept "wallet" as fallback for "wallet_address" (agents sometimes use the wrong field name)
               const walletAddress = data.wallet_address || data.wallet || null;
-              if (data.type === 'log_transaction' && data.signature && data.protocol && walletAddress) {
+              if (
+                data.type === 'log_transaction' &&
+                data.signature &&
+                data.protocol &&
+                walletAddress
+              ) {
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
                   // If existing record has incomplete data and this one has better data, upgrade it
                   if (
-                    data.protocol &&
-                    walletAddress &&
-                    (!existing.protocol || !existing.wallet_address)
+                    data.protocol !== 'auto' &&
+                    walletAddress !== 'auto' &&
+                    (!existing.protocol ||
+                      !existing.wallet_address ||
+                      existing.protocol === 'auto' ||
+                      existing.wallet_address === 'auto')
                   ) {
                     enrichTransaction(
                       data.signature,
@@ -143,12 +164,20 @@ export function startIpcWatcher(deps: IpcDeps): void {
                       data.amount || null,
                     );
                     logger.info(
-                      { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                      {
+                        signature: data.signature.slice(0, 16),
+                        protocol: data.protocol,
+                        sourceGroup,
+                      },
                       'Transaction enriched with detected data',
                     );
                   } else {
                     logger.debug(
-                      { signature: data.signature.slice(0, 16), existingProtocol: existing.protocol, newProtocol: data.protocol },
+                      {
+                        signature: data.signature.slice(0, 16),
+                        existingProtocol: existing.protocol,
+                        newProtocol: data.protocol,
+                      },
                       'Skipping duplicate transaction',
                     );
                   }
@@ -162,7 +191,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     created_at: data.timestamp || new Date().toISOString(),
                   });
                   logger.info(
-                    { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                    {
+                      signature: data.signature.slice(0, 16),
+                      protocol: data.protocol,
+                      sourceGroup,
+                    },
                     'Transaction logged',
                   );
                 }
@@ -245,6 +278,7 @@ export async function processTaskIpc(
     folder?: string;
     trigger?: string;
     requiresTrigger?: boolean;
+    model?: string;
     containerConfig?: RegisteredGroup['containerConfig'];
   },
   sourceGroup: string, // Verified identity from IPC directory
@@ -446,6 +480,7 @@ export async function processTaskIpc(
           folder: data.folder,
           trigger: data.trigger,
           added_at: new Date().toISOString(),
+          model: data.model,
           containerConfig: data.containerConfig,
           requiresTrigger: data.requiresTrigger,
         });
@@ -456,6 +491,32 @@ export async function processTaskIpc(
         );
       }
       break;
+
+    case 'set_group_model': {
+      const targetFolder = data.groupFolder;
+      if (!targetFolder) {
+        logger.warn(
+          { sourceGroup },
+          'Invalid set_group_model request - missing groupFolder',
+        );
+        break;
+      }
+      if (!isMain && targetFolder !== sourceGroup) {
+        logger.warn(
+          { sourceGroup, targetFolder },
+          'Unauthorized set_group_model attempt blocked',
+        );
+        break;
+      }
+      const updated = deps.updateGroupModel(targetFolder, data.model);
+      if (!updated) {
+        logger.warn(
+          { sourceGroup, targetFolder },
+          'set_group_model target group not found',
+        );
+      }
+      break;
+    }
 
     default:
       logger.warn({ type: data.type }, 'Unknown IPC task type');

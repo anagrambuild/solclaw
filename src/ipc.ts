@@ -127,10 +127,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
               if (data.type === 'log_transaction' && data.signature && data.protocol && data.wallet_address) {
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
-                  // If existing record has degraded 'auto' data and this one has real data, upgrade it
+                  // If existing record has incomplete data and this one has better data, upgrade it
                   if (
-                    data.protocol !== 'auto' &&
-                    (existing.protocol === 'auto' || existing.wallet_address === 'auto')
+                    data.protocol &&
+                    data.wallet_address &&
+                    (!existing.protocol || !existing.wallet_address)
                   ) {
                     enrichTransaction(
                       data.signature,
@@ -141,7 +142,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     );
                     logger.info(
                       { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
-                      'Transaction enriched from auto to explicit',
+                      'Transaction enriched with detected data',
                     );
                   } else {
                     logger.debug(

@@ -151,6 +151,18 @@ const KNOWN_PROGRAMS = {
   // PumpFun
   '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P': 'pumpfun',
   'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA': 'pumpfun',
+  // Metaplex
+  'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d': 'metaplex',
+  'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s': 'metaplex',
+  'BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY': 'metaplex',
+  'CndyV3LdqHUfDLmE5naZjVN8rBZz4tqhdefbAnjHG3JR': 'metaplex',
+  'Guard1JwRhJkVH6XZhzoYxeBVQe872VH6QggF4BWmS9g': 'metaplex',
+  'CMACYFENjoBMHzapRXyo1JZkVS6EtaDDzkjMrmQLvr4J': 'metaplex',
+  'CMAGAKJ67e9hRZgfC5SFTbZH8MgEmtqazKXjmkaJjWTJ': 'metaplex',
+  'MPL4o4wMzndgh8T1NVDxELQCj5UQfYTYEkabX3wNKtb': 'metaplex',
+  '1NSCRfGeyo7wPUazGbaPBUsTM49e1k2aXewHGARfzSo': 'metaplex',
+  // DFlow
+  'DF1ow3DqMj3HvTj8i8J9yM2hE9hCrLLXpdbaKZu4ZPnz': 'dflow',
 };
 
 // System/infra programs to skip when falling back to first program ID

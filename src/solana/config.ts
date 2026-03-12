@@ -23,7 +23,9 @@ export interface SolanaConfig {
 }
 
 /**
- * Load Solana configuration from file
+ * Load Solana configuration.
+ * If SOLCLAW_WALLET_PRIVATE_KEY is set (dashboard injection), it overrides
+ * the config file's wallet keys while preserving other preferences.
  */
 export async function loadSolanaConfig(
   configPath: string = 'config/solana-config.json'
@@ -47,6 +49,18 @@ export async function loadSolanaConfig(
 
   if (!config.setupComplete) {
     throw new Error('Setup incomplete. Run: npm run setup');
+  }
+
+  // Dashboard-injected key overrides config file wallet
+  const injectedKey = process.env.SOLCLAW_WALLET_PRIVATE_KEY;
+  if (injectedKey) {
+    const { Keypair } = await import('@solana/web3.js');
+    const bs58 = (await import('bs58')).default;
+    const secretKey = bs58.decode(injectedKey);
+    const kp = Keypair.fromSecretKey(secretKey);
+    config.wallet.privateKey = injectedKey;
+    config.wallet.publicKey = kp.publicKey.toBase58();
+    config.wallet.signingMethod = 'standard';
   }
 
   return config;

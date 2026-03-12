@@ -40,7 +40,6 @@ export async function displayWalletQR(address: string): Promise<void> {
 
 export async function run(args: string[]): Promise<void> {
   console.log(chalk.cyan.bold('\n🦀 Solana Configuration\n'));
-  console.log('Auto-generating wallet keypair.\n');
 
   emitStatus('SOLANA_SETUP', { STATUS: 'starting' });
 
@@ -48,33 +47,82 @@ export async function run(args: string[]): Promise<void> {
   const nonInteractive = !!cliArgs.network;
 
   try {
-    // Step 1: Auto-generate keypair
-    console.log(chalk.yellow('Step 1: Generating Wallet'));
+    // Step 1: Resolve wallet — use injected key if present, otherwise generate
+    console.log(chalk.yellow('Step 1: Wallet'));
 
-    const keypair = Keypair.generate();
-    const privateKey = bs58.encode(keypair.secretKey);
-    const publicKey = keypair.publicKey.toBase58();
+    let publicKey: string;
+    let privateKey: string;
+    let walletIsInjected = false;
 
-    console.log(chalk.green('\n✓ New keypair generated!\n'));
+    // Dashboard-injected key takes priority (one-click cloud deployment)
+    const injectedKey = process.env.SOLCLAW_WALLET_PRIVATE_KEY;
+    if (injectedKey) {
+      try {
+        const secretKey = bs58.decode(injectedKey);
+        const kp = Keypair.fromSecretKey(secretKey);
+        publicKey = kp.publicKey.toBase58();
+        privateKey = injectedKey;
+        walletIsInjected = true;
+        console.log(chalk.green('\n✓ Using dashboard-assigned wallet\n'));
+        console.log(chalk.white.bold('  Public Key'));
+        console.log(chalk.cyan(`  ${publicKey}\n`));
+      } catch {
+        console.log(chalk.yellow('⚠ Invalid SOLCLAW_WALLET_PRIVATE_KEY, generating new keypair instead\n'));
+        const kp = Keypair.generate();
+        privateKey = bs58.encode(kp.secretKey);
+        publicKey = kp.publicKey.toBase58();
+      }
+    } else {
+      // Check for existing config before generating
+      const existingConfigPath = path.join(process.cwd(), 'config', 'solana-config.json');
+      let existingConfig: any = null;
+      try {
+        const raw = await fs.readFile(existingConfigPath, 'utf-8');
+        existingConfig = JSON.parse(raw);
+      } catch {
+        // No existing config
+      }
 
-    console.log(chalk.red.bold('╔══════════════════════════════════════════════════════════════════╗'));
-    console.log(chalk.red.bold('║                                                                  ║'));
-    console.log(chalk.red.bold('║   SAVE YOUR PRIVATE KEY NOW — YOU WILL NOT SEE IT AGAIN          ║'));
-    console.log(chalk.red.bold('║                                                                  ║'));
-    console.log(chalk.red.bold('╚══════════════════════════════════════════════════════════════════╝'));
+      if (existingConfig?.wallet?.privateKey && existingConfig?.wallet?.publicKey) {
+        publicKey = existingConfig.wallet.publicKey;
+        privateKey = existingConfig.wallet.privateKey;
+        walletIsInjected = true; // reuse flag to skip "save your key" warning
+        console.log(chalk.green('\n✓ Existing wallet found, reusing\n'));
+        console.log(chalk.white.bold('  Public Key'));
+        console.log(chalk.cyan(`  ${publicKey}\n`));
+      } else {
+        console.log('Auto-generating wallet keypair.\n');
+        const kp = Keypair.generate();
+        privateKey = bs58.encode(kp.secretKey);
+        publicKey = kp.publicKey.toBase58();
+      }
+    }
 
-    console.log('');
+    if (!walletIsInjected) {
+      console.log(chalk.green('\n✓ New keypair generated!\n'));
+
+      console.log(chalk.red.bold('╔══════════════════════════════════════════════════════════════════╗'));
+      console.log(chalk.red.bold('║                                                                  ║'));
+      console.log(chalk.red.bold('║   SAVE YOUR PRIVATE KEY NOW — YOU WILL NOT SEE IT AGAIN          ║'));
+      console.log(chalk.red.bold('║                                                                  ║'));
+      console.log(chalk.red.bold('╚══════════════════════════════════════════════════════════════════╝'));
+      console.log('');
+    }
+
     console.log(chalk.white.bold('  Public Key'));
     console.log(chalk.cyan(`  ${publicKey}`));
     console.log('');
     console.log(chalk.white.bold('  Private Key'));
     console.log(chalk.yellow(`  ${privateKey}`));
     console.log('');
-    console.log(chalk.gray('  Copy your private key and store it somewhere safe (password'));
-    console.log(chalk.gray('  manager, encrypted note, etc). This is the ONLY time it will'));
-    console.log(chalk.gray('  be displayed. If you lose it, the wallet and any funds in'));
-    console.log(chalk.gray('  it are gone forever.'));
-    console.log('');
+
+    if (!walletIsInjected) {
+      console.log(chalk.gray('  Copy your private key and store it somewhere safe (password'));
+      console.log(chalk.gray('  manager, encrypted note, etc). This is the ONLY time it will'));
+      console.log(chalk.gray('  be displayed. If you lose it, the wallet and any funds in'));
+      console.log(chalk.gray('  it are gone forever.'));
+      console.log('');
+    }
 
     // Step 2: RPC Configuration
     console.log(chalk.yellow('Step 2: RPC Configuration'));
@@ -215,6 +263,9 @@ export async function run(args: string[]): Promise<void> {
     console.log(chalk.white(`  Address:         ${chalk.cyan(publicKey)}`));
     console.log(chalk.white(`  Signing Method:  ${chalk.cyan('Standard (local keypair)')}`));
     console.log(chalk.white(`  Network:         ${chalk.cyan(rpcUrl)}`));
+    if (walletIsInjected) {
+      console.log(chalk.white(`  Source:          ${chalk.cyan(injectedKey ? 'Dashboard-assigned' : 'Existing config')}`));
+    }
     console.log('');
 
     console.log(chalk.white.bold('  Config Files'));

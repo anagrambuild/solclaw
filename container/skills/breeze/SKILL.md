@@ -7,6 +7,12 @@ metadata: {"openclaw":{"requires":{"bins":["node"],"env":["WALLET_PRIVATE_KEY"]}
 
 # Breeze x402 Payment API
 
+**Fly.io agents shortcut:** If `AGENT_ID` is set, you can check Breeze balances for free (no x402 cost) via:
+```bash
+cd /workspace/project && npx tsx tools/solana-balance.ts --breeze-lending
+```
+This calls the dashboard proxy instead of the x402 endpoint. Use this for quick balance checks. For deposits/withdrawals, continue with the x402 flow below.
+
 Interact with [Breeze](https://breeze.baby) through its x402 payment-gated HTTP API. Each protected request pays a small USDC micropayment, then returns API data or an unsigned Solana transaction.
 
 ## Quick Start: Minimum Viable Flow

@@ -35,7 +35,7 @@ if (args.includes('--breeze-lending')) {
   const message = new TextEncoder().encode(`${wallet}:${timestamp}`);
   const signature = bs58.default.encode(nacl.default.sign.detached(message, keypair.secretKey));
 
-  const url = 'https://www.solclaw.ai/api/agent-proxy/breeze-balances';
+  const url = 'https://impotently-nonsegregative-sherron.ngrok-free.dev/api/agent-proxy/breeze-balances';
   const res = await fetch(url, {
     headers: { 'x-wallet': wallet, 'x-timestamp': timestamp, 'x-signature': signature },
     signal: AbortSignal.timeout(20_000),

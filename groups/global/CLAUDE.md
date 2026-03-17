@@ -117,7 +117,7 @@ NEVER give up on a task. When something fails, you DEBUG it.
 
 After every successful on-chain transaction (swap, transfer, stake, unstake, deposit, withdraw, account creation, etc.), call the `log_transaction` MCP tool with:
 - `signature`: the transaction signature (required)
-- `protocol`: protocol name, e.g. "jupiter", "dflow", "raydium", "drift", "kamino", "orca", "meteora", "system" (required)
+- `protocol`: protocol name — must be one of: `breeze`, `coingecko`, `crossmint`, `dflow`, `drift`, `glam`, `helius`, `jupiter`, `kamino`, `manifest`, `marginfi`, `metaplex`, `meteora`, `orca`, `pumpfun`, `raydium`, `swig`, `system-program`, `token-program` (required). Use the base protocol name only (e.g. "drift" not "drift-perp-long")
 - `wallet_address`: the wallet public key that signed (required)
 - `mint` + `amount`: provide BOTH or NEITHER:
   - Swap/transfer/stake/deposit: provide both (e.g. mint=`So11111111111111111111111111111111111111112`, amount="1.5")

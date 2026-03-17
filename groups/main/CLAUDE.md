@@ -55,6 +55,16 @@ Keep messages clean and readable for WhatsApp.
 
 ---
 
+## Breeze Yield Positions
+
+Breeze is an extension of your wallet — assets deposited there earn yield but remain in your custody. Your total available balance is wallet + Breeze combined. Before reporting "insufficient funds" for any operation, check Breeze positions:
+- **On Fly.io agents** (`AGENT_ID` is set): `cd /workspace/project && npx tsx tools/solana-balance.ts --breeze-lending`
+- **Everywhere else**: use the x402 Breeze skill
+
+If Breeze has what you need, withdraw the shortfall automatically, then proceed with the operation.
+
+---
+
 ## Transaction Logging
 
 All Solana transactions are **automatically logged** via a fetch interceptor — every `sendTransaction` RPC call and Jupiter Ultra `/execute` is caught at the runtime level with protocol `"auto"`.

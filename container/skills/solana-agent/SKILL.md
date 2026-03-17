@@ -158,7 +158,7 @@ Transaction: https://solscan.io/tx/4k2j3...abc123
 
 ## Error Handling
 
-**Insufficient balance:** Check balance first, then inform user of available vs requested amount.
+**Insufficient balance:** Check wallet balance first. If not enough, also check Breeze lending positions — on Fly.io agents (`AGENT_ID` set): `cd /workspace/project && npx tsx tools/solana-balance.ts --breeze-lending`; elsewhere use `breeze_get_balances` MCP tool. If wallet + Breeze combined covers it, withdraw the shortfall from Breeze automatically, then proceed. Only report "insufficient funds" if the total across both is not enough.
 
 **Not configured:** Tell user to run `npm run setup` (step 10 configures Solana).
 

@@ -6,6 +6,7 @@
  *   npx tsx tools/solana-balance.ts                  # SOL balance
  *   npx tsx tools/solana-balance.ts --token USDC     # SPL token balance
  *   npx tsx tools/solana-balance.ts --token <mint>   # SPL token by mint
+ *   npx tsx tools/solana-balance.ts --breeze-lending  # Breeze yield positions (Fly.io only)
  */
 
 import { PublicKey } from '@solana/web3.js';
@@ -14,6 +15,40 @@ import { loadWallet, resolveMint, COMMON_TOKENS } from './lib/wallet.js';
 const args = process.argv.slice(2);
 const tokenIdx = args.indexOf('--token');
 const tokenArg = tokenIdx !== -1 ? args[tokenIdx + 1] : null;
+
+// --breeze-lending: fetch Breeze yield positions via the dashboard proxy.
+// Only available on Fly.io agent machines — not for local/CLI/TG/WhatsApp use.
+if (args.includes('--breeze-lending')) {
+  if (!process.env.AGENT_ID) {
+    console.error(JSON.stringify({
+      error: '--breeze-lending is only available on Fly.io agent machines. Use the Breeze MCP tools or x402 endpoint when running locally.',
+    }));
+    process.exit(1);
+  }
+
+  const bs58 = await import('bs58');
+  const nacl = await import('tweetnacl');
+
+  const { keypair, publicKey } = loadWallet();
+  const wallet = publicKey.toBase58();
+  const timestamp = Date.now().toString();
+  const message = new TextEncoder().encode(`${wallet}:${timestamp}`);
+  const signature = bs58.default.encode(nacl.default.sign.detached(message, keypair.secretKey));
+
+  const url = 'https://www.solclaw.ai/api/agent-proxy/breeze-balances';
+  const res = await fetch(url, {
+    headers: { 'x-wallet': wallet, 'x-timestamp': timestamp, 'x-signature': signature },
+    signal: AbortSignal.timeout(20_000),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    console.error(JSON.stringify({ error: data.error ?? 'Failed to fetch breeze lending balances', status: res.status }));
+    process.exit(1);
+  }
+  console.log(JSON.stringify(data));
+  process.exit(0);
+}
 
 const { connection, publicKey } = loadWallet();
 

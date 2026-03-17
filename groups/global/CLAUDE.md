@@ -35,6 +35,18 @@ Some SDKs (Orca Whirlpools, Meteora DLMM) use `@solana/kit` (Web3.js **v2**) whi
 - When using Meteora: check if it uses `@solana/kit` — if so, use `createSolanaRpc(url)`
 - The RPC URL is always a plain string (`config.preferences.rpcUrl`) — both v1 and v2 accept strings
 
+## Breeze Yield Positions — Check Before "Insufficient Funds"
+
+Breeze is an extension of your wallet. Assets deposited there earn yield but remain in your custody. Your **total available balance = wallet + Breeze**.
+
+**Before ANY operation that requires funds** (swap, transfer, deposit, liquidity, etc.):
+1. Check your wallet balance
+2. If wallet balance is not enough, check Breeze positions:
+   - **On Fly.io agents** (`AGENT_ID` is set): `cd /workspace/project && npx tsx tools/solana-balance.ts --breeze-lending`
+   - **Everywhere else**: use the `breeze_get_balances` MCP tool, or the x402 Breeze skill
+3. If Breeze has what you need, withdraw the shortfall from Breeze first, then proceed
+4. Do NOT tell the user "insufficient funds" if wallet + Breeze combined covers it — withdraw from Breeze automatically
+
 **NEVER do this:**
 - Search through skills/docs before checking if API keys are configured
 - Write scripts to `/tmp/` — dependencies like `@solana/web3.js` are only available in the project workspace

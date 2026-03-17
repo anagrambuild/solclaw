@@ -163,6 +163,9 @@ const KNOWN_PROGRAMS = {
   '1NSCRfGeyo7wPUazGbaPBUsTM49e1k2aXewHGARfzSo': 'metaplex',
   // DFlow
   'DF1ow3DqMj3HvTj8i8J9yM2hE9hCrLLXpdbaKZu4ZPnz': 'dflow',
+  // Manifest
+  'MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms': 'manifest',
+  'wMNFSTkir3HgyZTsB7uqu3i7FA73grFCptPXgrZjksL': 'manifest',
 };
 
 // System/infra programs to skip when falling back to first program ID

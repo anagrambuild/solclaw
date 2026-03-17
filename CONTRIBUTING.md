@@ -1,23 +1,88 @@
 # Contributing
 
-## Source Code Changes
+## Ways to Contribute
 
-**Accepted:** Bug fixes, security fixes, simplifications, reducing code.
+### 1. Add a New Skill (Protocol Integration)
 
-**Not accepted:** Features, capabilities, compatibility, enhancements. These should be skills.
+Skills teach the agent how to interact with a Solana protocol. Each skill lives in `container/skills/<protocol-name>/`.
 
-## Skills
+#### Create the skill directory
 
-A [skill](https://code.claude.com/docs/en/skills) is a markdown file in `.claude/skills/` that teaches Claude Code how to transform a SolClaw installation.
+```
+container/skills/<your-protocol>/
+  SKILL.md              # Required — instructions, examples, guidelines
+  resources/            # SDK docs, API references
+  examples/             # Copy-paste-ready TypeScript examples
+  templates/            # Starter code agents can adapt
+  docs/                 # Troubleshooting, architecture notes
+```
 
-A PR that contributes a skill should not modify any source files.
+#### Write SKILL.md
 
-Your skill should contain the **instructions** Claude follows to add the feature—not pre-built code. See `/add-telegram` for a good example.
+Use this frontmatter:
 
-### Why?
+```yaml
+---
+name: your-protocol
+creator: your-github-username
+description: One-line description of what the skill covers.
+---
+```
 
-Every user should have clean and minimal code that does exactly what they need. Skills let users selectively add features to their fork without inheriting code for features they don't want.
+The body should include:
+- **Overview** — when to use this skill
+- **Instructions** — step-by-step decision flow for the agent
+- **Examples** — concrete "when user asks X, agent should do Y" patterns
+- **Guidelines** — DO/DON'T list
+- **Common Errors** — error messages and fixes
+- **References** — official docs, SDK links
 
-### Testing
+Look at existing skills (`jupiter`, `drift`, `breeze`, `manifest`) for the pattern.
 
-Test your skill by running it on a fresh clone before submitting.
+#### Add program IDs to the transaction preload
+
+Open `container/solana-tx-preload.cjs` and add your protocol's Solana program ID(s) to the `KNOWN_PROGRAMS` map:
+
+```javascript
+const KNOWN_PROGRAMS = {
+  // ... existing entries ...
+  // Your Protocol
+  'YourProgramId111111111111111111111111111111': 'your-protocol',
+};
+```
+
+This is how the auto-logging system detects which protocol a transaction belongs to. Without this, your protocol's transactions won't be attributed correctly.
+
+Find your program ID(s) in:
+- `declare_id!()` in the protocol's Rust source
+- `Anchor.toml` in the protocol repo
+- Solana Explorer — look up any known transaction from the protocol
+
+#### Submit proof that it works
+
+Include a screenshot or log showing the agent successfully executing a transaction using your skill. Any messenger (WhatsApp, Telegram, or terminal output) is accepted as proof.
+
+### 2. Improve the System
+
+Bug fixes, simplifications, and security fixes to source code are welcome.
+
+### 3. Improve Existing Skills
+
+- Fix outdated SDK methods or API endpoints
+- Add missing program IDs
+- Add more examples or error handling patterns
+
+## Pull Request Process
+
+1. Fork the repo and create a branch from `main`
+2. Make your changes
+3. Fill out the PR template completely
+4. For skills: include proof (screenshot/log) that it works
+5. For program IDs: include a link to the source (protocol repo or Solana Explorer)
+
+## Code Style
+
+- Skills are documentation — they teach the agent what to do
+- Examples should be minimal and copy-paste-ready
+- Don't embed private keys in examples
+- Keep SKILL.md focused and actionable

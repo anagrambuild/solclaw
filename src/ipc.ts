@@ -10,7 +10,15 @@ import {
   TIMEZONE,
 } from './config.js';
 import { AvailableGroup } from './container-runner.js';
-import { createTask, deleteTask, enrichTransaction, getTaskById, getTransactionBySignature, logTransaction, updateTask } from './db.js';
+import {
+  createTask,
+  deleteTask,
+  enrichTransaction,
+  getTaskById,
+  getTransactionBySignature,
+  logTransaction,
+  updateTask,
+} from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
@@ -27,6 +35,9 @@ export interface IpcDeps {
     availableGroups: AvailableGroup[],
     registeredJids: Set<string>,
   ) => void;
+  updateSolanaRpcUrl: (
+    rpcUrl: string,
+  ) => Promise<{ previousRpcUrl?: string; rpcUrl: string }>;
 }
 
 let ipcWatcherRunning = false;
@@ -61,7 +72,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
       const isMain = sourceGroup === MAIN_GROUP_FOLDER;
       const messagesDir = path.join(ipcBaseDir, sourceGroup, 'messages');
       const tasksDir = path.join(ipcBaseDir, sourceGroup, 'tasks');
-      const transactionsDir = path.join(ipcBaseDir, sourceGroup, 'transactions');
+      const transactionsDir = path.join(
+        ipcBaseDir,
+        sourceGroup,
+        'transactions',
+      );
 
       // Process messages from this group's IPC directory
       try {
@@ -126,7 +141,12 @@ export function startIpcWatcher(deps: IpcDeps): void {
               const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
               // Accept "wallet" as fallback for "wallet_address" (agents sometimes use the wrong field name)
               const walletAddress = data.wallet_address || data.wallet || null;
-              if (data.type === 'log_transaction' && data.signature && data.protocol && walletAddress) {
+              if (
+                data.type === 'log_transaction' &&
+                data.signature &&
+                data.protocol &&
+                walletAddress
+              ) {
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
                   // If existing record has incomplete data and this one has better data, upgrade it
@@ -143,12 +163,20 @@ export function startIpcWatcher(deps: IpcDeps): void {
                       data.amount || null,
                     );
                     logger.info(
-                      { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                      {
+                        signature: data.signature.slice(0, 16),
+                        protocol: data.protocol,
+                        sourceGroup,
+                      },
                       'Transaction enriched with detected data',
                     );
                   } else {
                     logger.debug(
-                      { signature: data.signature.slice(0, 16), existingProtocol: existing.protocol, newProtocol: data.protocol },
+                      {
+                        signature: data.signature.slice(0, 16),
+                        existingProtocol: existing.protocol,
+                        newProtocol: data.protocol,
+                      },
                       'Skipping duplicate transaction',
                     );
                   }
@@ -162,7 +190,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     created_at: data.timestamp || new Date().toISOString(),
                   });
                   logger.info(
-                    { signature: data.signature.slice(0, 16), protocol: data.protocol, sourceGroup },
+                    {
+                      signature: data.signature.slice(0, 16),
+                      protocol: data.protocol,
+                      sourceGroup,
+                    },
                     'Transaction logged',
                   );
                 }
@@ -239,6 +271,7 @@ export async function processTaskIpc(
     groupFolder?: string;
     chatJid?: string;
     targetJid?: string;
+    rpcUrl?: string;
     // For register_group
     jid?: string;
     name?: string;
@@ -456,6 +489,39 @@ export async function processTaskIpc(
         );
       }
       break;
+
+    case 'set_solana_rpc': {
+      if (!isMain) {
+        logger.warn(
+          { sourceGroup },
+          'Unauthorized set_solana_rpc attempt blocked',
+        );
+        break;
+      }
+
+      const rpcUrl = data.rpcUrl?.trim();
+      if (!rpcUrl) {
+        logger.warn(
+          { sourceGroup },
+          'Invalid set_solana_rpc request - missing rpcUrl',
+        );
+        break;
+      }
+
+      try {
+        const { previousRpcUrl } = await deps.updateSolanaRpcUrl(rpcUrl);
+        logger.info(
+          { sourceGroup, previousRpcUrl, rpcUrl },
+          'Updated Solana RPC URL via IPC',
+        );
+      } catch (err) {
+        logger.warn(
+          { sourceGroup, rpcUrl, err },
+          'Failed to update Solana RPC URL via IPC',
+        );
+      }
+      break;
+    }
 
     default:
       logger.warn({ type: data.type }, 'Unknown IPC task type');

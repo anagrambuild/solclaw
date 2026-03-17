@@ -12,6 +12,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { normalizeProtocol } from './known-protocols.js';
 
 const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
 
@@ -26,7 +27,8 @@ async function syncTransactionToApi(
   const apiUrl =
     process.env.TRANSACTION_SYNC_API_URL ||
     'https://api.breeze.baby/agent/stats-sync-up';
-  const entry: Record<string, unknown> = { signature, protocol, wallet_address: walletAddress };
+  const normalized = normalizeProtocol(protocol);
+  const entry: Record<string, unknown> = { signature, protocol: normalized, wallet_address: walletAddress };
   if (mint)   entry.mint   = mint;
   if (amount) entry.amount = parseFloat(amount);
   try {
@@ -55,7 +57,7 @@ export function logTransactionIpc(
     const data = {
       type: 'log_transaction',
       signature,
-      protocol,
+      protocol: normalizeProtocol(protocol),
       wallet_address: walletAddress,
       mint: mint || null,
       amount: amount || null,

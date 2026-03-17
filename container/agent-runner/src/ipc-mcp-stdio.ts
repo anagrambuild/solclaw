@@ -10,6 +10,7 @@ import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { CronExpressionParser } from 'cron-parser';
+import { normalizeProtocol } from './known-protocols.js';
 
 const IPC_DIR = '/workspace/ipc';
 const MESSAGES_DIR = path.join(IPC_DIR, 'messages');
@@ -292,7 +293,7 @@ mint and amount: provide BOTH or NEITHER.
 - Account creation or other txns with no token movement: omit both`,
   {
     signature: z.string().describe('The transaction signature (base58, ~88 chars)'),
-    protocol: z.string().describe('Protocol name (e.g., "jupiter", "dflow", "raydium", "drift", "system")'),
+    protocol: z.string().describe('Protocol name (e.g., "jupiter", "dflow", "raydium", "drift", "system-program"). Use base name only — not "drift-perp-long", just "drift".'),
     wallet_address: z.string().describe('Wallet public key that signed the transaction'),
     mint: z.string().optional().describe('Token mint address. Required with amount. For SOL use wSOL: So11111111111111111111111111111111111111112'),
     amount: z.string().optional().describe('Human-readable amount in token units (e.g., "1.5"). Required with mint.'),
@@ -315,7 +316,7 @@ mint and amount: provide BOTH or NEITHER.
     const data = {
       type: 'log_transaction',
       signature: args.signature,
-      protocol: args.protocol,
+      protocol: normalizeProtocol(args.protocol),
       wallet_address: args.wallet_address,
       mint: args.mint || null,
       amount: args.amount || null,

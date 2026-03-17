@@ -168,6 +168,27 @@ const KNOWN_PROGRAMS = {
   'wMNFSTkir3HgyZTsB7uqu3i7FA73grFCptPXgrZjksL': 'manifest',
 };
 
+// Canonical protocol names — keep in sync with src/known-protocols.ts
+const KNOWN_PROTOCOLS_SET = new Set([
+  'breeze', 'coingecko', 'crossmint', 'dflow', 'drift', 'glam',
+  'helius', 'jupiter', 'kamino', 'manifest', 'marginfi', 'metaplex',
+  'meteora', 'orca', 'pumpfun', 'raydium', 'swig',
+  'system-program', 'token-program',
+]);
+
+const PROTOCOL_ALIASES = { 'system': 'system-program', 'transfer': 'token-program', 'solana': 'token-program', 'spl-transfer': 'token-program' };
+
+function normalizeProtocol(raw) {
+  if (!raw) return 'unknown';
+  const cleaned = raw.toLowerCase().trim();
+  if (PROTOCOL_ALIASES[cleaned]) return PROTOCOL_ALIASES[cleaned];
+  if (KNOWN_PROTOCOLS_SET.has(cleaned)) return cleaned;
+  for (const p of KNOWN_PROTOCOLS_SET) {
+    if (cleaned.includes(p)) return p;
+  }
+  return cleaned;
+}
+
 // System/infra programs to skip when falling back to first program ID
 const SYSTEM_PROGRAMS = new Set([
   '11111111111111111111111111111111',                 // System Program
@@ -250,7 +271,7 @@ function detectProtocolFromTx(base64Tx) {
       if (!SYSTEM_PROGRAMS.has(pid)) return pid;
     }
 
-    return 'transfer';
+    return 'token-program';
   } catch (_) {
     return null;
   }
@@ -285,7 +306,7 @@ function syncToApi(signature, protocol) {
   if (!walletAddress || !_origFetch) return;
   try {
     const entry = { signature, wallet_address: walletAddress };
-    if (protocol) entry.protocol = protocol;
+    if (protocol) entry.protocol = normalizeProtocol(protocol);
     _origFetch(SYNC_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -310,7 +331,7 @@ function writeIpcFile(signature, protocol) {
     const data = {
       type: 'log_transaction',
       signature,
-      protocol: protocol || null,
+      protocol: protocol ? normalizeProtocol(protocol) : null,
       wallet_address: walletAddress || null,
       mint: null,
       amount: null,

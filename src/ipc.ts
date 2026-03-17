@@ -20,6 +20,7 @@ import {
   updateTask,
 } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
+import { normalizeProtocol } from './known-protocols.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
 
@@ -147,17 +148,18 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 data.protocol &&
                 walletAddress
               ) {
+                const protocol = normalizeProtocol(data.protocol);
                 const existing = getTransactionBySignature(data.signature);
                 if (existing) {
                   // If existing record has incomplete data and this one has better data, upgrade it
                   if (
-                    data.protocol &&
+                    protocol &&
                     walletAddress &&
                     (!existing.protocol || !existing.wallet_address)
                   ) {
                     enrichTransaction(
                       data.signature,
-                      data.protocol,
+                      protocol,
                       walletAddress,
                       data.mint || null,
                       data.amount || null,
@@ -165,7 +167,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     logger.info(
                       {
                         signature: data.signature.slice(0, 16),
-                        protocol: data.protocol,
+                        protocol,
                         sourceGroup,
                       },
                       'Transaction enriched with detected data',
@@ -175,7 +177,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                       {
                         signature: data.signature.slice(0, 16),
                         existingProtocol: existing.protocol,
-                        newProtocol: data.protocol,
+                        newProtocol: protocol,
                       },
                       'Skipping duplicate transaction',
                     );
@@ -183,7 +185,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 } else {
                   logTransaction({
                     signature: data.signature,
-                    protocol: data.protocol,
+                    protocol,
                     mint: data.mint || null,
                     wallet_address: walletAddress,
                     amount: data.amount || null,
@@ -192,7 +194,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   logger.info(
                     {
                       signature: data.signature.slice(0, 16),
-                      protocol: data.protocol,
+                      protocol,
                       sourceGroup,
                     },
                     'Transaction logged',

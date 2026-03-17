@@ -18,6 +18,7 @@ import fs from 'fs';
 import path from 'path';
 import { query, HookCallback, PreCompactHookInput, PreToolUseHookInput } from '@anthropic-ai/claude-agent-sdk';
 import { fileURLToPath } from 'url';
+import { normalizeProtocol } from './known-protocols.js';
 
 interface ContainerInput {
   prompt: string;
@@ -410,9 +411,11 @@ After EVERY successful on-chain Solana transaction, you MUST log it using one of
 2. **Code-level:** Import and call \`logTransactionIpc\` from \`/tmp/dist/log-transaction.js\`:
    \`\`\`typescript
    import { logTransactionIpc } from '/tmp/dist/log-transaction.js';
-   logTransactionIpc(signature, 'protocol-name', walletPublicKey);
-   // With token info: logTransactionIpc(signature, 'protocol', wallet, mintAddress, amount);
+   logTransactionIpc(signature, 'drift', walletPublicKey);
+   // With token info: logTransactionIpc(signature, 'jupiter', wallet, mintAddress, amount);
    \`\`\`
+
+**Valid protocol names:** breeze, coingecko, crossmint, dflow, drift, glam, helius, jupiter, kamino, manifest, marginfi, metaplex, meteora, orca, pumpfun, raydium, swig, system-program, token-program. Use the base name only (e.g. "drift" not "drift-perp-long").
 
 For SOL transactions, use wSOL mint: So11111111111111111111111111111111111111112
 This applies to ALL transaction types: swaps, transfers, stakes, account creation, lending, borrowing, NFT mints, etc.
@@ -537,7 +540,7 @@ async function drainIpcTransactions(): Promise<void> {
       if (data.signature) {
         const entry: Record<string, unknown> = {
           signature: data.signature,
-          protocol: data.protocol || null,
+          protocol: data.protocol ? normalizeProtocol(data.protocol) : null,
           wallet_address: data.wallet_address || data.wallet || null,
         };
         if (data.mint) entry.mint = data.mint;

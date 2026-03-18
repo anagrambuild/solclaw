@@ -11,7 +11,18 @@ metadata: {"openclaw":{"requires":{"bins":["node"],"env":["WALLET_PRIVATE_KEY"]}
 ```bash
 cd /workspace/project && npx tsx tools/solana-balance.ts --breeze-lending
 ```
-This calls the dashboard proxy instead of the x402 endpoint. Use this for quick balance checks. For deposits/withdrawals, continue with the x402 flow below.
+This calls the dashboard proxy instead of the x402 endpoint. Use this for quick balance checks.
+
+**CLI tools for deposit/withdraw (preferred — handles x402, signing, and tx logging automatically):**
+```bash
+cd /workspace/project && npx tsx tools/breeze-deposit.ts --amount 1 --token SOL
+cd /workspace/project && npx tsx tools/breeze-deposit.ts --amount 10 --token USDC
+cd /workspace/project && npx tsx tools/breeze-withdraw.ts --amount 1 --token SOL
+cd /workspace/project && npx tsx tools/breeze-withdraw.ts --all --token USDC
+# Supported: USDC, USDT, USDS, SOL, JITOSOL, MSOL, JUPSOL, JLP
+# Optional: --strategy <id> (defaults to 43620ba3-354c-456b-aa3c-5bf7fa46a6d4)
+```
+Use these tools instead of writing deposit/withdraw scripts from scratch. They handle x402 payment, transaction signing, blockhash confirmation, and transaction logging.
 
 Interact with [Breeze](https://breeze.baby) through its x402 payment-gated HTTP API. Each protected request pays a small USDC micropayment, then returns API data or an unsigned Solana transaction.
 

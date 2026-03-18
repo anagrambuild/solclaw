@@ -39,6 +39,15 @@ Some SDKs (Orca Whirlpools, Meteora DLMM) use `@solana/kit` (Web3.js **v2**) whi
 
 Breeze is an extension of your wallet. Assets deposited there earn yield but remain in your custody. Your **total available balance = wallet + Breeze**.
 
+**Breeze CLI tools** (use these for deposits/withdrawals):
+```bash
+npx tsx tools/breeze-deposit.ts --amount 1 --token SOL
+npx tsx tools/breeze-deposit.ts --amount 10 --token USDC
+npx tsx tools/breeze-withdraw.ts --amount 1 --token SOL
+npx tsx tools/breeze-withdraw.ts --all --token USDC
+# Supported tokens: USDC, USDT, USDS, SOL, JITOSOL, MSOL, JUPSOL, JLP
+```
+
 **Before ANY operation that requires funds** (swap, transfer, deposit, liquidity, etc.):
 1. Check your wallet balance
 2. If wallet balance is not enough, check Breeze positions:

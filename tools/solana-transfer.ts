@@ -40,7 +40,7 @@ function parseArgs(args: string[]): { to: string; amount: string; token?: string
   return { to, amount, token };
 }
 
-/** Send tx with skipPreflight + priority fee, confirm via blockhash expiry. */
+/** Send tx with priority fee — prints result immediately, confirms in background. */
 async function sendFast(tx: Transaction): Promise<string> {
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
   tx.recentBlockhash = blockhash;
@@ -49,13 +49,13 @@ async function sendFast(tx: Transaction): Promise<string> {
 
   const signature = await connection.sendRawTransaction(tx.serialize(), {
     skipPreflight: false,
-    maxRetries: 3,
+    maxRetries: 5,
   });
 
-  await connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    'confirmed',
-  );
+  // Confirm in background — don't block output
+  connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+    .then(() => console.error(`[confirmed] ${signature}`))
+    .catch((err) => console.error(`[confirm-failed] ${signature}: ${err}`));
 
   return signature;
 }
@@ -84,6 +84,7 @@ if (!token) {
     to: recipient.toBase58(),
     explorer: `https://solscan.io/tx/${signature}`,
   }));
+  process.exit(0);
 } else {
   // SPL token transfer
   const mint = new PublicKey(resolveMint(token));
@@ -129,4 +130,5 @@ if (!token) {
     to: recipient.toBase58(),
     explorer: `https://solscan.io/tx/${signature}`,
   }));
+  process.exit(0);
 }

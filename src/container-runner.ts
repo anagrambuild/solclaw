@@ -157,12 +157,24 @@ function readSecrets(): Record<string, string> {
     'OPENROUTER_API_KEY',
     'ANTHROPIC_API_KEY',
     'MODEL_ID',
+    'KEY_TYPE',
     'DFLOW_API_KEY',
     'JUPITER_API_KEY',
     'BREEZE_API_KEY',
     'HELIUS_API_KEY',
     'SOLCLAW_WALLET_PRIVATE_KEY',
   ]);
+
+  // Migration: if only ANTHROPIC_API_KEY is set, map it to OPENROUTER_API_KEY
+  // with key type "anthropic" so the agent routes it through OpenRouter's
+  // provider-key passthrough.
+  if (!secrets.OPENROUTER_API_KEY && secrets.ANTHROPIC_API_KEY) {
+    secrets.OPENROUTER_API_KEY = secrets.ANTHROPIC_API_KEY;
+    if (!secrets.KEY_TYPE) {
+      secrets.KEY_TYPE = 'anthropic';
+    }
+  }
+  delete secrets.ANTHROPIC_API_KEY;
 
   // Also check process.env for dashboard-injected wallet key
   // (cloud deployments set this directly, not via .env)

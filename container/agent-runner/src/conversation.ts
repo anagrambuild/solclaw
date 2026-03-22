@@ -14,13 +14,28 @@ const HISTORY_FILE = path.join(CONVERSATION_DIR, 'history.json');
 const CHARS_PER_TOKEN = 4;
 
 const MODEL_CONTEXT_LIMITS: Record<string, number> = {
+  // Anthropic
   'anthropic/claude-opus-4-6': 200_000,
+  'anthropic/claude-sonnet-4-5': 200_000,
   'anthropic/claude-sonnet-4': 200_000,
   'anthropic/claude-haiku-3.5': 200_000,
+  // OpenAI
+  'openai/gpt-4.1': 1_000_000,
+  'openai/gpt-4.1-mini': 1_000_000,
+  'openai/gpt-4.1-nano': 1_000_000,
   'openai/gpt-4o': 128_000,
   'openai/gpt-4o-mini': 128_000,
-  'google/gemini-2.0-flash': 1_000_000,
+  'openai/o4-mini': 200_000,
+  // Google
   'google/gemini-2.5-pro-preview': 1_000_000,
+  'google/gemini-2.5-flash-preview': 1_000_000,
+  'google/gemini-2.0-flash': 1_000_000,
+  // DeepSeek
+  'deepseek/deepseek-chat-v3-0324': 64_000,
+  // Meta
+  'meta-llama/llama-4-maverick': 1_000_000,
+  // Mistral
+  'mistralai/mistral-large-latest': 128_000,
 };
 
 const DEFAULT_CONTEXT_LIMIT = 128_000;

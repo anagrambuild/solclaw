@@ -375,51 +375,34 @@ async function main(): Promise<void> {
   }
 
   // Extract API key and model from secrets/env
+  // All key types route through OpenRouter — provider-specific keys (Anthropic,
+  // OpenAI, Google) are passed as the API key and OpenRouter forwards them.
   const apiKey = containerInput.secrets?.OPENROUTER_API_KEY
-    || containerInput.secrets?.ANTHROPIC_API_KEY
     || process.env.OPENROUTER_API_KEY
-    || process.env.ANTHROPIC_API_KEY
     || '';
 
   const modelId = containerInput.secrets?.MODEL_ID
     || process.env.MODEL_ID
     || 'anthropic/claude-opus-4-6';
 
-  const keyType = containerInput.secrets?.KEY_TYPE
-    || process.env.KEY_TYPE
-    || 'openrouter';
-
-  const PROVIDER_BASE_URLS: Record<string, string | undefined> = {
-    openrouter: undefined,
-    anthropic: 'https://api.anthropic.com/v1/',
-    openai: 'https://api.openai.com/v1',
-    google: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-  };
-
-  const isDirect = keyType !== 'openrouter';
-  const serverURL = PROVIDER_BASE_URLS[keyType];
-  
-
   if (!apiKey) {
     writeOutput({ status: 'error', result: null, error: 'No API key provided (OPENROUTER_API_KEY)' });
     process.exit(1);
   }
 
-  const effectiveModelId = isDirect ? modelId.split('/').slice(1).join('/') : modelId;
-
   // Inject secrets into process.env so tool scripts can access API keys
   // (only protocol-specific keys, NOT the LLM API key)
   for (const [key, value] of Object.entries(containerInput.secrets || {})) {
-    if (key !== 'OPENROUTER_API_KEY' && key !== 'ANTHROPIC_API_KEY' && key !== 'CLAUDE_CODE_OAUTH_TOKEN') {
+    if (key !== 'OPENROUTER_API_KEY' && key !== 'CLAUDE_CODE_OAUTH_TOKEN') {
       process.env[key] = value;
     }
   }
 
-  log(`Model: ${effectiveModelId}`);
+  log(`Model: ${modelId}`);
   log(`API key: ${apiKey ? 'set' : 'MISSING'}`);
 
-  // Initialize OpenRouter client
-  const client = new OpenRouter({ apiKey, ...(serverURL ? { serverURL } : {}) });
+  // Initialize OpenRouter client (all key types route through OpenRouter)
+  const client = new OpenRouter({ apiKey });
 
   // Set IPC context for tools
   setIpcContext({
@@ -461,7 +444,7 @@ async function main(): Promise<void> {
       log(`Starting turn (model: ${modelId}, new: ${isNewSession})...`);
 
       const result = await runAgenticTurn(
-        client, effectiveModelId, prompt, systemPrompt, containerInput.assistantName, isNewSession,
+        client, modelId, prompt, systemPrompt, containerInput.assistantName, isNewSession,
       );
 
       isNewSession = false;

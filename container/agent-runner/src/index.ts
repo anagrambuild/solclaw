@@ -385,10 +385,27 @@ async function main(): Promise<void> {
     || process.env.MODEL_ID
     || 'anthropic/claude-opus-4-6';
 
+  const keyType = containerInput.secrets?.KEY_TYPE
+    || process.env.KEY_TYPE
+    || 'openrouter';
+
+  const PROVIDER_BASE_URLS: Record<string, string | undefined> = {
+    openrouter: undefined,
+    anthropic: 'https://api.anthropic.com/v1/',
+    openai: 'https://api.openai.com/v1',
+    google: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+  };
+
+  const isDirect = keyType !== 'openrouter';
+  const serverURL = PROVIDER_BASE_URLS[keyType];
+  
+
   if (!apiKey) {
     writeOutput({ status: 'error', result: null, error: 'No API key provided (OPENROUTER_API_KEY)' });
     process.exit(1);
   }
+
+  const effectiveModelId = isDirect ? modelId.split('/').slice(1).join('/') : modelId;
 
   // Inject secrets into process.env so tool scripts can access API keys
   // (only protocol-specific keys, NOT the LLM API key)
@@ -398,11 +415,11 @@ async function main(): Promise<void> {
     }
   }
 
-  log(`Model: ${modelId}`);
+  log(`Model: ${effectiveModelId}`);
   log(`API key: ${apiKey ? 'set' : 'MISSING'}`);
 
   // Initialize OpenRouter client
-  const client = new OpenRouter({ apiKey });
+  const client = new OpenRouter({ apiKey, ...(serverURL ? { serverURL } : {}) });
 
   // Set IPC context for tools
   setIpcContext({
@@ -444,7 +461,7 @@ async function main(): Promise<void> {
       log(`Starting turn (model: ${modelId}, new: ${isNewSession})...`);
 
       const result = await runAgenticTurn(
-        client, modelId, prompt, systemPrompt, containerInput.assistantName, isNewSession,
+        client, effectiveModelId, prompt, systemPrompt, containerInput.assistantName, isNewSession,
       );
 
       isNewSession = false;

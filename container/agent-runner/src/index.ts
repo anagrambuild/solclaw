@@ -140,14 +140,13 @@ async function callAnthropic(
   return { text, toolCalls };
 }
 
-/** Call OpenRouter or OpenAI-compatible endpoint. */
-async function callOpenAICompat(
+/** Call OpenRouter SDK. */
+async function callOpenRouterAPI(
   client: OpenRouter, modelId: string, messages: ConversationMessage[], tools: ToolDefinition[],
-  headers?: { httpReferer?: string; xTitle?: string },
 ): Promise<TurnCallResult> {
   const response = await client.chat.send({
-    ...(headers?.httpReferer ? { httpReferer: headers.httpReferer } : {}),
-    ...(headers?.xTitle ? { xTitle: headers.xTitle } : {}),
+    httpReferer: 'https://solclaw.ai',
+    xTitle: 'SolClaw Agent',
     chatGenerationParams: {
       model: modelId,
       messages: messages as Parameters<typeof client.chat.send>[0]['chatGenerationParams']['messages'],
@@ -162,6 +161,55 @@ async function callOpenAICompat(
   return {
     text: typeof msg.content === 'string' ? msg.content : null,
     toolCalls: (msg.toolCalls ?? []).map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
+  };
+}
+
+/** Call OpenAI API directly via fetch (OpenRouter SDK has validation that rejects OpenAI responses). */
+async function callOpenAIDirect(
+  apiKey: string, modelId: string, messages: ConversationMessage[], tools: ToolDefinition[],
+): Promise<TurnCallResult> {
+  const openaiMessages = messages.map((m) => {
+    if (m.role === 'tool') {
+      return { role: 'tool' as const, content: m.content ?? '', tool_call_id: m.toolCallId };
+    }
+    if (m.role === 'assistant' && m.toolCalls) {
+      return {
+        role: 'assistant' as const,
+        content: m.content ?? null,
+        tool_calls: m.toolCalls.map((tc) => ({
+          id: tc.id, type: 'function' as const,
+          function: { name: tc.function.name, arguments: tc.function.arguments },
+        })),
+      };
+    }
+    return { role: m.role, content: m.content ?? '' };
+  });
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: stripProviderPrefix(modelId),
+      messages: openaiMessages,
+      tools,
+      max_tokens: 16384,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenAI API error ${res.status}: ${errText.slice(0, 500)}`);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = await res.json();
+  const choice = data.choices?.[0];
+  if (!choice?.message) return { text: null, toolCalls: [] };
+  const msg = choice.message;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return {
+    text: typeof msg.content === 'string' ? msg.content : null,
+    toolCalls: (msg.tool_calls ?? []).map((tc: any) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
   };
 }
 
@@ -502,14 +550,11 @@ async function main(): Promise<void> {
     const anthropicClient = new Anthropic({ apiKey });
     callLLM = (msgs, tools) => callAnthropic(anthropicClient, modelId, msgs, tools);
   } else if (keyType === 'openai') {
-    const openaiClient = new OpenRouter({ apiKey, serverURL: 'https://api.openai.com/v1' });
-    callLLM = (msgs, tools) => callOpenAICompat(openaiClient, stripProviderPrefix(modelId), msgs, tools);
+    callLLM = (msgs, tools) => callOpenAIDirect(apiKey, modelId, msgs, tools);
   } else {
     // "openrouter", "google", and any unknown key types
     const orClient = new OpenRouter({ apiKey });
-    callLLM = (msgs, tools) => callOpenAICompat(orClient, modelId, msgs, tools, {
-      httpReferer: 'https://solclaw.ai', xTitle: 'SolClaw Agent',
-    });
+    callLLM = (msgs, tools) => callOpenRouterAPI(orClient, modelId, msgs, tools);
   }
 
   // Set IPC context for tools

@@ -2,8 +2,10 @@
  * SolClaw Agent Runner
  * Runs inside a container, receives config via stdin, outputs result to stdout.
  *
- * Uses the OpenRouter SDK for multi-model support (Claude, GPT-4o, Gemini, etc.)
- * with function-calling tools replacing the Claude Agent SDK + MCP approach.
+ * Multi-provider support:
+ *   - "openrouter" → OpenRouter SDK (any model)
+ *   - "anthropic"  → Anthropic SDK direct (sk-ant-* keys)
+ *   - "openai"     → OpenRouter SDK pointed at api.openai.com (sk-* keys)
  *
  * Input protocol:
  *   Stdin: Full ContainerInput JSON (read until EOF)
@@ -17,8 +19,9 @@
 import fs from 'fs';
 import path from 'path';
 import { OpenRouter } from '@openrouter/sdk';
+import Anthropic from '@anthropic-ai/sdk';
 import { normalizeProtocol } from './known-protocols.js';
-import { STANDARD_TOOL_DEFINITIONS, executeStandardTool, setCwd } from './standard-tools.js';
+import { STANDARD_TOOL_DEFINITIONS, executeStandardTool, setCwd, type ToolDefinition } from './standard-tools.js';
 import { IPC_TOOL_DEFINITIONS, executeIpcTool, setIpcContext } from './ipc-tools.js';
 import {
   type ConversationMessage,
@@ -57,7 +60,110 @@ const IPC_POLL_MS = 500;
 const SYNC_API_URL = 'https://api.breeze.baby/agent/stats-sync-up';
 const MAX_ROUNDS = 50;
 
-const ALL_TOOL_DEFINITIONS = [...STANDARD_TOOL_DEFINITIONS, ...IPC_TOOL_DEFINITIONS];
+const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [...STANDARD_TOOL_DEFINITIONS, ...IPC_TOOL_DEFINITIONS];
+
+type KeyType = 'openrouter' | 'anthropic' | 'openai' | 'google';
+
+/** Normalized result from any provider. */
+interface TurnCallResult {
+  text: string | null;
+  toolCalls: Array<{ id: string; name: string; arguments: string }>;
+}
+
+function stripProviderPrefix(modelId: string): string {
+  const slash = modelId.indexOf('/');
+  return slash >= 0 ? modelId.slice(slash + 1) : modelId;
+}
+
+/** Convert tool definitions to Anthropic format. */
+function toAnthropicTools(defs: ToolDefinition[]): Anthropic.Tool[] {
+  return defs.map((td) => ({
+    name: td.function.name,
+    description: td.function.description,
+    input_schema: td.function.parameters as Anthropic.Tool['input_schema'],
+  }));
+}
+
+/** Convert conversation messages to Anthropic format. */
+function toAnthropicMessages(messages: ConversationMessage[]): Anthropic.MessageParam[] {
+  const result: Anthropic.MessageParam[] = [];
+  for (const msg of messages) {
+    if (msg.role === 'system') continue;
+    if (msg.role === 'user') {
+      result.push({ role: 'user', content: msg.content ?? '' });
+      continue;
+    }
+    if (msg.role === 'assistant') {
+      const content: Anthropic.ContentBlockParam[] = [];
+      if (msg.content) content.push({ type: 'text', text: msg.content });
+      if (msg.toolCalls) {
+        for (const tc of msg.toolCalls) {
+          let input: Record<string, unknown>;
+          try { input = JSON.parse(tc.function.arguments); } catch { input = {}; }
+          content.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
+        }
+      }
+      if (content.length > 0) result.push({ role: 'assistant', content });
+      continue;
+    }
+    if (msg.role === 'tool' && msg.toolCallId) {
+      result.push({
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: msg.toolCallId, content: msg.content ?? '' }],
+      });
+    }
+  }
+  return result;
+}
+
+/** Call Anthropic Messages API directly. */
+async function callAnthropic(
+  client: Anthropic, modelId: string, messages: ConversationMessage[], tools: ToolDefinition[],
+): Promise<TurnCallResult> {
+  const systemMsg = messages.find((m) => m.role === 'system');
+  const systemPrompt = typeof systemMsg?.content === 'string' ? systemMsg.content : '';
+  const response = await client.messages.create({
+    model: stripProviderPrefix(modelId),
+    max_tokens: 16384,
+    system: systemPrompt,
+    messages: toAnthropicMessages(messages),
+    tools: toAnthropicTools(tools),
+  });
+  let text: string | null = null;
+  const toolCalls: TurnCallResult['toolCalls'] = [];
+  for (const block of response.content) {
+    if (block.type === 'text') text = (text ?? '') + block.text;
+    else if (block.type === 'tool_use') {
+      toolCalls.push({ id: block.id, name: block.name, arguments: JSON.stringify(block.input) });
+    }
+  }
+  return { text, toolCalls };
+}
+
+/** Call OpenRouter or OpenAI-compatible endpoint. */
+async function callOpenAICompat(
+  client: OpenRouter, modelId: string, messages: ConversationMessage[], tools: ToolDefinition[],
+  headers?: { httpReferer?: string; xTitle?: string },
+): Promise<TurnCallResult> {
+  const response = await client.chat.send({
+    ...(headers?.httpReferer ? { httpReferer: headers.httpReferer } : {}),
+    ...(headers?.xTitle ? { xTitle: headers.xTitle } : {}),
+    chatGenerationParams: {
+      model: modelId,
+      messages: messages as Parameters<typeof client.chat.send>[0]['chatGenerationParams']['messages'],
+      tools: tools as Parameters<typeof client.chat.send>[0]['chatGenerationParams']['tools'],
+      maxTokens: 16384,
+      stream: false,
+    },
+  });
+  const choice = response.choices?.[0];
+  if (!choice?.message) return { text: null, toolCalls: [] };
+  const msg = choice.message;
+  return {
+    text: typeof msg.content === 'string' ? msg.content : null,
+    toolCalls: (msg.toolCalls ?? []).map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
+  };
+}
 
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
@@ -205,7 +311,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
 // ── Agentic Loop ───────────────────────────────────────────────────────────
 
 async function runAgenticTurn(
-  client: OpenRouter,
+  callLLMFn: (messages: ConversationMessage[], tools: ToolDefinition[]) => Promise<TurnCallResult>,
   modelId: string,
   userMessage: string,
   systemPrompt: string,
@@ -247,61 +353,46 @@ async function runAgenticTurn(
       }
     }
 
-    const response = await client.chat.send({
-      httpReferer: 'https://solclaw.ai',
-      xTitle: 'SolClaw Agent',
-      chatGenerationParams: {
-        model: modelId,
-        messages: messages as Parameters<typeof client.chat.send>[0]['chatGenerationParams']['messages'],
-        tools: ALL_TOOL_DEFINITIONS as Parameters<typeof client.chat.send>[0]['chatGenerationParams']['tools'],
-        maxTokens: 16384,
-        stream: false,
-      },
-    });
+    const result = await callLLMFn(messages, ALL_TOOL_DEFINITIONS);
 
-    const choice = response.choices?.[0];
-    if (!choice?.message) break;
-
-    const assistantMessage = choice.message;
-
+    // Store assistant message
     const storedMessage: ConversationMessage = {
       role: 'assistant',
-      content: assistantMessage.content as string | null ?? null,
+      content: result.text,
     };
 
-    if (assistantMessage.toolCalls?.length) {
-      storedMessage.toolCalls = assistantMessage.toolCalls.map((tc) => ({
+    if (result.toolCalls.length > 0) {
+      storedMessage.toolCalls = result.toolCalls.map((tc) => ({
         id: tc.id,
         type: 'function' as const,
-        function: { name: tc.function.name, arguments: tc.function.arguments },
+        function: { name: tc.name, arguments: tc.arguments },
       }));
     }
 
     messages.push(storedMessage);
 
-    if (typeof assistantMessage.content === 'string' && assistantMessage.content) {
-      lastTextResponse = assistantMessage.content;
+    if (result.text) {
+      lastTextResponse = result.text;
     }
 
-    if (!assistantMessage.toolCalls?.length) {
+    if (result.toolCalls.length === 0) {
       saveConversation(messages);
       return { textResponse: lastTextResponse, closedDuringQuery };
     }
 
     // Execute tool calls
-    for (const toolCall of assistantMessage.toolCalls) {
-      const toolName = toolCall.function.name;
+    for (const toolCall of result.toolCalls) {
       let toolArgs: Record<string, unknown>;
-      try { toolArgs = JSON.parse(toolCall.function.arguments); }
+      try { toolArgs = JSON.parse(toolCall.arguments); }
       catch { toolArgs = {}; }
 
-      log(`Tool: ${toolName} (${JSON.stringify(toolArgs).slice(0, 200)})`);
+      log(`Tool: ${toolCall.name} (${JSON.stringify(toolArgs).slice(0, 200)})`);
 
-      let result: string;
-      try { result = await executeTool(toolName, toolArgs); }
-      catch (err) { result = `Tool error: ${err instanceof Error ? err.message : String(err)}`; }
+      let toolResult: string;
+      try { toolResult = await executeTool(toolCall.name, toolArgs); }
+      catch (err) { toolResult = `Tool error: ${err instanceof Error ? err.message : String(err)}`; }
 
-      messages.push({ role: 'tool', content: result, toolCallId: toolCall.id });
+      messages.push({ role: 'tool', content: toolResult, toolCallId: toolCall.id });
     }
 
     saveConversation(messages);
@@ -374,9 +465,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Extract API key and model from secrets/env
-  // All key types route through OpenRouter — provider-specific keys (Anthropic,
-  // OpenAI, Google) are passed as the API key and OpenRouter forwards them.
+  // Extract API key, model, and key type from secrets/env
   const apiKey = containerInput.secrets?.OPENROUTER_API_KEY
     || process.env.OPENROUTER_API_KEY
     || '';
@@ -384,6 +473,10 @@ async function main(): Promise<void> {
   const modelId = containerInput.secrets?.MODEL_ID
     || process.env.MODEL_ID
     || 'anthropic/claude-opus-4-6';
+
+  const keyType = (containerInput.secrets?.KEY_TYPE
+    || process.env.KEY_TYPE
+    || 'openrouter') as KeyType;
 
   if (!apiKey) {
     writeOutput({ status: 'error', result: null, error: 'No API key provided (OPENROUTER_API_KEY)' });
@@ -399,10 +492,25 @@ async function main(): Promise<void> {
   }
 
   log(`Model: ${modelId}`);
+  log(`Key type: ${keyType}`);
   log(`API key: ${apiKey ? 'set' : 'MISSING'}`);
 
-  // Initialize OpenRouter client (all key types route through OpenRouter)
-  const client = new OpenRouter({ apiKey });
+  // Build provider-specific LLM call function
+  let callLLM: (messages: ConversationMessage[], tools: ToolDefinition[]) => Promise<TurnCallResult>;
+
+  if (keyType === 'anthropic') {
+    const anthropicClient = new Anthropic({ apiKey });
+    callLLM = (msgs, tools) => callAnthropic(anthropicClient, modelId, msgs, tools);
+  } else if (keyType === 'openai') {
+    const openaiClient = new OpenRouter({ apiKey, serverURL: 'https://api.openai.com/v1' });
+    callLLM = (msgs, tools) => callOpenAICompat(openaiClient, stripProviderPrefix(modelId), msgs, tools);
+  } else {
+    // "openrouter", "google", and any unknown key types
+    const orClient = new OpenRouter({ apiKey });
+    callLLM = (msgs, tools) => callOpenAICompat(orClient, modelId, msgs, tools, {
+      httpReferer: 'https://solclaw.ai', xTitle: 'SolClaw Agent',
+    });
+  }
 
   // Set IPC context for tools
   setIpcContext({
@@ -444,7 +552,7 @@ async function main(): Promise<void> {
       log(`Starting turn (model: ${modelId}, new: ${isNewSession})...`);
 
       const result = await runAgenticTurn(
-        client, modelId, prompt, systemPrompt, containerInput.assistantName, isNewSession,
+        callLLM, modelId, prompt, systemPrompt, containerInput.assistantName, isNewSession,
       );
 
       isNewSession = false;

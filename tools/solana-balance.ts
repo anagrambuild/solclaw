@@ -53,9 +53,49 @@ if (args.includes('--breeze-lending')) {
 const { connection, publicKey } = loadWallet();
 
 if (!tokenArg) {
-  // SOL balance
+  // SOL balance + all SPL token accounts
   const lamports = await connection.getBalance(publicKey);
-  console.log(JSON.stringify({ sol: lamports / 1e9, address: publicKey.toBase58() }));
+  const result: Record<string, unknown> = { sol: lamports / 1e9, address: publicKey.toBase58() };
+
+  // Scan all SPL token accounts (Token Program + Token-2022)
+  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+  const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
+  try {
+    const [legacyAccounts, token2022Accounts] = await Promise.all([
+      connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID }),
+      connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_2022_PROGRAM_ID }),
+    ]);
+    const tokenAccounts = { value: [...legacyAccounts.value, ...token2022Accounts.value] };
+    const tokens: Array<{ mint: string; symbol: string | null; balance: number; decimals: number }> = [];
+
+    // Reverse lookup: mint → symbol
+    const mintToSymbol: Record<string, string> = {};
+    for (const [symbol, mint] of Object.entries(COMMON_TOKENS)) {
+      mintToSymbol[mint] = symbol;
+    }
+
+    for (const { account } of tokenAccounts.value) {
+      const parsed = account.data.parsed?.info;
+      if (!parsed) continue;
+      const balance = parsed.tokenAmount?.uiAmount ?? 0;
+      if (balance === 0) continue; // skip zero-balance accounts
+      const mint = parsed.mint as string;
+      tokens.push({
+        mint,
+        symbol: mintToSymbol[mint] ?? null,
+        balance,
+        decimals: parsed.tokenAmount?.decimals ?? 0,
+      });
+    }
+
+    if (tokens.length > 0) {
+      result.tokens = tokens;
+    }
+  } catch {
+    // Token scan failed — still return SOL balance
+  }
+
+  console.log(JSON.stringify(result));
 } else {
   const mint = resolveMint(tokenArg);
   const mintPubkey = new PublicKey(mint);

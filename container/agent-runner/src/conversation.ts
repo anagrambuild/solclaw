@@ -20,11 +20,10 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   'anthropic/claude-sonnet-4': 200_000,
   'anthropic/claude-haiku-3.5': 200_000,
   // OpenAI
-  'openai/gpt-4.1': 1_000_000,
-  'openai/gpt-4.1-mini': 1_000_000,
-  'openai/gpt-4.1-nano': 1_000_000,
-  'openai/gpt-4o': 128_000,
-  'openai/gpt-4o-mini': 128_000,
+  'openai/gpt-5.4': 1_050_000,
+  'openai/gpt-5.4-pro': 1_050_000,
+  'openai/gpt-5.4-mini': 400_000,
+  'openai/gpt-5.4-nano': 400_000,
   'openai/o4-mini': 200_000,
   // Google
   'google/gemini-2.5-pro-preview': 1_000_000,

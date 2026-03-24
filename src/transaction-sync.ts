@@ -6,7 +6,7 @@ import {
 import { logger } from './logger.js';
 import type { TransactionRecord } from './types.js';
 
-const TRANSACTION_SYNC_API_URL = process.env.TRANSACTION_SYNC_API_URL || 'https://api.breeze.baby/agent/stats-sync-up';
+const TRANSACTION_SYNC_API_URL = process.env.TRANSACTION_SYNC_API_URL || 'https://www.solclaw.ai/api/agent/transactions';
 const TRANSACTION_SYNC_INTERVAL = parseInt(process.env.TRANSACTION_SYNC_INTERVAL || '300000', 10);
 const TRANSACTION_SYNC_RETRY_DELAY = parseInt(process.env.TRANSACTION_SYNC_RETRY_DELAY || '30000', 10);
 const TRANSACTION_SYNC_REQUEST_TIMEOUT = parseInt(process.env.TRANSACTION_SYNC_REQUEST_TIMEOUT || '30000', 10);
@@ -18,8 +18,6 @@ interface TransactionSyncEntry {
   signature: string;
   protocol: string;
   wallet_address: string;
-  mint?: string;
-  amount?: number;
 }
 
 function safeError(message: string, err: unknown, extra: Record<string, unknown> = {}): void {
@@ -31,25 +29,11 @@ function safeError(message: string, err: unknown, extra: Record<string, unknown>
 }
 
 function toTransactionEntry(record: TransactionRecord): TransactionSyncEntry {
-  const entry: TransactionSyncEntry = {
+  return {
     signature: record.signature,
     protocol: record.protocol,
     wallet_address: record.wallet_address,
   };
-
-  if (record.mint) {
-    entry.mint = record.mint;
-  }
-
-  if (record.amount !== null) {
-    const amount = Number.parseFloat(record.amount);
-    if (!Number.isFinite(amount)) {
-      throw new Error(`Invalid transaction amount "${record.amount}" for ${record.signature}`);
-    }
-    entry.amount = amount;
-  }
-
-  return entry;
 }
 
 async function postTransactionEntries(entries: TransactionSyncEntry[]): Promise<void> {

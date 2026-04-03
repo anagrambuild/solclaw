@@ -31,6 +31,9 @@ import {
   getMessagesSince,
   getNewMessages,
   getRouterState,
+  getActiveUserCount,
+  getActiveAgentCount,
+  getTransactionCount,
   initDatabase,
   setRegisteredGroup,
   setRouterState,
@@ -41,6 +44,17 @@ import {
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
+import {
+  flushMetrics,
+  startGaugeEmitter,
+  stopGaugeEmitter,
+  trackAgentInvocation,
+  trackAppShutdown,
+  trackAppStart,
+  trackGroupRegistered,
+  trackMessageOutbound,
+  trackUserActive,
+} from './metrics.js';
 import { findChannel, formatMessages, formatOutbound } from './router.js';
 import { updateSolanaRpcUrl } from './solana/config.js';
 import { startSchedulerLoop } from './task-scheduler.js';
@@ -105,6 +119,14 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
     { jid, name: group.name, folder: group.folder },
     'Group registered',
   );
+
+  const channel = jid.startsWith('tg:') ? 'telegram' : 'whatsapp';
+  trackGroupRegistered({
+    jid,
+    name: group.name,
+    folder: group.folder,
+    channel,
+  });
 }
 
 /**
@@ -179,6 +201,34 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     'Processing messages',
   );
 
+  // Track metrics: who triggered this invocation and user activity
+  const lastMsg = missedMessages[missedMessages.length - 1];
+  const triggeredBy = lastMsg?.sender || 'unknown';
+  const channelName = chatJid.startsWith('tg:') ? 'telegram' : 'whatsapp';
+
+  trackAgentInvocation({
+    groupFolder: group.folder,
+    groupName: group.name,
+    chatJid,
+    isMain: isMainGroup,
+    messageCount: missedMessages.length,
+    triggeredBy,
+  });
+
+  // Emit user.active for each unique sender in this batch (for DAU/retention)
+  const seenSenders = new Set<string>();
+  for (const msg of missedMessages) {
+    if (!seenSenders.has(msg.sender)) {
+      seenSenders.add(msg.sender);
+      trackUserActive({
+        userId: msg.sender,
+        userName: msg.sender_name,
+        groupFolder: group.folder,
+        channel: channelName,
+      });
+    }
+  }
+
   // Track idle timer for closing stdin when agent is idle
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -210,6 +260,11 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       if (text) {
         await channel.sendMessage(chatJid, text);
         outputSentToUser = true;
+        trackMessageOutbound({
+          chatJid,
+          channel: channelName,
+          textLength: text.length,
+        });
       }
       // Only reset idle timer on actual results, not session-update markers (result: null)
       resetIdleTimer();
@@ -491,9 +546,14 @@ async function main(): Promise<void> {
   logger.info('Database initialized');
   loadState();
 
+  trackAppStart();
+
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
+    trackAppShutdown({ signal });
+    stopGaugeEmitter();
+    await flushMetrics();
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
     process.exit(0);
@@ -562,6 +622,24 @@ async function main(): Promise<void> {
   queue.setProcessMessagesFn(processGroupMessages);
   startTransactionSyncLoop();
   recoverPendingMessages();
+
+  // Start periodic gauge snapshots for Axiom dashboards (DAU, active agents, etc.)
+  startGaugeEmitter(() => {
+    const tasks = getAllTasks();
+    return {
+      registeredGroupCount: Object.keys(registeredGroups).length,
+      activeContainerCount: queue.getActiveCount(),
+      scheduledTaskCount: tasks.filter((t) => t.status === 'active').length,
+      totalTransactionCount: getTransactionCount(),
+      dailyActiveUsers: getActiveUserCount(1),
+      weeklyActiveUsers: getActiveUserCount(7),
+      monthlyActiveUsers: getActiveUserCount(30),
+      dailyActiveAgents: getActiveAgentCount(1),
+      weeklyActiveAgents: getActiveAgentCount(7),
+      monthlyActiveAgents: getActiveAgentCount(30),
+    };
+  });
+
   startMessageLoop().catch((err) => {
     logger.fatal({ err }, 'Message loop crashed unexpectedly');
     process.exit(1);

@@ -19,6 +19,11 @@ import { readEnvFile } from './env.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
 import {
+  trackAgentComplete,
+  trackContainerSpawn,
+  trackContainerTimeout,
+} from './metrics.js';
+import {
   CONTAINER_RUNTIME_BIN,
   readonlyMountArgs,
   stopContainer,
@@ -319,6 +324,15 @@ export async function runContainerAgent(
     'Spawning container agent',
   );
 
+  trackContainerSpawn({
+    groupFolder: group.folder,
+    groupName: group.name,
+    containerName,
+    isMain: input.isMain,
+    mountCount: mounts.length,
+    isScheduledTask: input.isScheduledTask || false,
+  });
+
   const logsDir = path.join(groupDir, 'logs');
   fs.mkdirSync(logsDir, { recursive: true });
 
@@ -472,6 +486,14 @@ export async function runContainerAgent(
           ].join('\n'),
         );
 
+        trackContainerTimeout({
+          groupFolder: group.folder,
+          groupName: group.name,
+          containerName,
+          durationMs: duration,
+          hadOutput: hadStreamingOutput,
+        });
+
         // Timeout after output = idle cleanup, not failure.
         // The agent already sent its response; this is just the
         // container being reaped after the idle period expired.
@@ -480,6 +502,14 @@ export async function runContainerAgent(
             { group: group.name, containerName, duration, code },
             'Container timed out after output (idle cleanup)',
           );
+          trackAgentComplete({
+            groupFolder: group.folder,
+            groupName: group.name,
+            status: 'success',
+            durationMs: duration,
+            exitCode: code,
+            hadOutput: true,
+          });
           outputChain.then(() => {
             resolve({
               status: 'success',
@@ -494,6 +524,15 @@ export async function runContainerAgent(
           { group: group.name, containerName, duration, code },
           'Container timed out with no output',
         );
+
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: 'timeout',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: false,
+        });
 
         resolve({
           status: 'error',
@@ -574,6 +613,15 @@ export async function runContainerAgent(
           'Container exited with error',
         );
 
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: 'error',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: hadStreamingOutput,
+        });
+
         resolve({
           status: 'error',
           result: null,
@@ -589,6 +637,14 @@ export async function runContainerAgent(
             { group: group.name, duration, newSessionId },
             'Container completed (streaming mode)',
           );
+          trackAgentComplete({
+            groupFolder: group.folder,
+            groupName: group.name,
+            status: 'success',
+            durationMs: duration,
+            exitCode: code,
+            hadOutput: hadStreamingOutput,
+          });
           resolve({
             status: 'success',
             result: null,
@@ -627,6 +683,15 @@ export async function runContainerAgent(
           'Container completed',
         );
 
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: output.status === 'success' ? 'success' : 'error',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: !!output.result,
+        });
+
         resolve(output);
       } catch (err) {
         logger.error(
@@ -638,6 +703,15 @@ export async function runContainerAgent(
           },
           'Failed to parse container output',
         );
+
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: 'error',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: false,
+        });
 
         resolve({
           status: 'error',

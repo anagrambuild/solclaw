@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Standalone CLI tools for Solana operations. Own dependency tree to avoid conflicts.",
+  "overrides": {
+    "axios": "1.13.6"
+  },
   "dependencies": {
     "@drift-labs/sdk": "^2.155.0",
     "@faremeter/fetch": "^0.16.0",

@@ -2,7 +2,6 @@ import { Bot } from 'grammy';
 
 import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
 import { logger } from '../logger.js';
-import { trackChannelConnected, trackChannelDisconnected } from '../metrics.js';
 import {
   Channel,
   OnChatMetadata,
@@ -192,7 +191,6 @@ export class TelegramChannel implements Channel {
             { username: botInfo.username, id: botInfo.id },
             'Telegram bot connected',
           );
-          trackChannelConnected({ channel: 'telegram' });
           console.log(`\n  Telegram bot: @${botInfo.username}`);
           console.log(
             `  Send /chatid to the bot to get a chat's registration ID\n`,
@@ -240,7 +238,6 @@ export class TelegramChannel implements Channel {
 
   async disconnect(): Promise<void> {
     if (this.bot) {
-      trackChannelDisconnected({ channel: 'telegram', reason: 'shutdown' });
       this.bot.stop();
       this.bot = null;
       logger.info('Telegram bot stopped');

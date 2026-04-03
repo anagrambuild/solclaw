@@ -18,7 +18,6 @@ import {
 } from '../config.js';
 import { getLastGroupSync, setLastGroupSync, updateChatName } from '../db.js';
 import { logger } from '../logger.js';
-import { trackChannelConnected, trackChannelDisconnected } from '../metrics.js';
 import {
   Channel,
   OnInboundMessage,
@@ -99,10 +98,6 @@ export class WhatsAppChannel implements Channel {
           lastDisconnect?.error as { output?: { statusCode?: number } }
         )?.output?.statusCode;
         const shouldReconnect = reason !== DisconnectReason.loggedOut;
-        trackChannelDisconnected({
-          channel: 'whatsapp',
-          reason: String(reason),
-        });
         logger.info(
           {
             reason,
@@ -128,7 +123,6 @@ export class WhatsAppChannel implements Channel {
         }
       } else if (connection === 'open') {
         this.connected = true;
-        trackChannelConnected({ channel: 'whatsapp' });
         logger.info('Connected to WhatsApp');
 
         // Announce availability so WhatsApp relays subsequent presence updates (typing indicators)

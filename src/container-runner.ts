@@ -18,7 +18,16 @@ import {
 import { readEnvFile } from './env.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
-import { CONTAINER_RUNTIME_BIN, readonlyMountArgs, stopContainer } from './container-runtime.js';
+import {
+  trackAgentComplete,
+  trackContainerSpawn,
+  trackContainerTimeout,
+} from './metrics.js';
+import {
+  CONTAINER_RUNTIME_BIN,
+  readonlyMountArgs,
+  stopContainer,
+} from './container-runtime.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
 
@@ -105,19 +114,26 @@ function buildVolumeMounts(
   fs.mkdirSync(groupSessionsDir, { recursive: true });
   const settingsFile = path.join(groupSessionsDir, 'settings.json');
   if (!fs.existsSync(settingsFile)) {
-    fs.writeFileSync(settingsFile, JSON.stringify({
-      env: {
-        // Enable agent swarms (subagent orchestration)
-        // https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions
-        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-        // Load CLAUDE.md from additional mounted directories
-        // https://code.claude.com/docs/en/memory#load-memory-from-additional-directories
-        CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
-        // Enable Claude's memory feature (persists user preferences between sessions)
-        // https://code.claude.com/docs/en/memory#manage-auto-memory
-        CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
-      },
-    }, null, 2) + '\n');
+    fs.writeFileSync(
+      settingsFile,
+      JSON.stringify(
+        {
+          env: {
+            // Enable agent swarms (subagent orchestration)
+            // https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions
+            CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+            // Load CLAUDE.md from additional mounted directories
+            // https://code.claude.com/docs/en/memory#load-memory-from-additional-directories
+            CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
+            // Enable Claude's memory feature (persists user preferences between sessions)
+            // https://code.claude.com/docs/en/memory#manage-auto-memory
+            CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
+          },
+        },
+        null,
+        2,
+      ) + '\n',
+    );
   }
 
   // Sync skills from container/skills/ into each group's .claude/skills/
@@ -147,7 +163,11 @@ function buildVolumeMounts(
   // Clean up stale _close sentinels from previous container runs
   const closeFile = path.join(inputDir, '_close');
   if (fs.existsSync(closeFile)) {
-    try { fs.unlinkSync(closeFile); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(closeFile);
+    } catch {
+      /* ignore */
+    }
   }
   fs.mkdirSync(path.join(groupIpcDir, 'transactions'), { recursive: true });
   mounts.push({
@@ -159,8 +179,18 @@ function buildVolumeMounts(
   // Copy agent-runner source into a per-group writable location so agents
   // can customize it (add tools, change behavior) without affecting other
   // groups. Recompiled on container startup via entrypoint.sh.
-  const agentRunnerSrc = path.join(projectRoot, 'container', 'agent-runner', 'src');
-  const groupAgentRunnerDir = path.join(DATA_DIR, 'sessions', group.folder, 'agent-runner-src');
+  const agentRunnerSrc = path.join(
+    projectRoot,
+    'container',
+    'agent-runner',
+    'src',
+  );
+  const groupAgentRunnerDir = path.join(
+    DATA_DIR,
+    'sessions',
+    group.folder,
+    'agent-runner-src',
+  );
   if (fs.existsSync(agentRunnerSrc)) {
     fs.cpSync(agentRunnerSrc, groupAgentRunnerDir, { recursive: true });
   }
@@ -200,14 +230,20 @@ function readSecrets(): Record<string, string> {
 
   // Also check process.env for dashboard-injected wallet key
   // (cloud deployments set this directly, not via .env)
-  if (!secrets.SOLCLAW_WALLET_PRIVATE_KEY && process.env.SOLCLAW_WALLET_PRIVATE_KEY) {
+  if (
+    !secrets.SOLCLAW_WALLET_PRIVATE_KEY &&
+    process.env.SOLCLAW_WALLET_PRIVATE_KEY
+  ) {
     secrets.SOLCLAW_WALLET_PRIVATE_KEY = process.env.SOLCLAW_WALLET_PRIVATE_KEY;
   }
 
   return secrets;
 }
 
-function buildContainerArgs(mounts: VolumeMount[], containerName: string): string[] {
+function buildContainerArgs(
+  mounts: VolumeMount[],
+  containerName: string,
+): string[] {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
 
   // Pass host timezone so container's local time matches the user's
@@ -274,6 +310,15 @@ export async function runContainerAgent(
     },
     'Spawning container agent',
   );
+
+  trackContainerSpawn({
+    groupFolder: group.folder,
+    groupName: group.name,
+    containerName,
+    isMain: input.isMain,
+    mountCount: mounts.length,
+    isScheduledTask: input.isScheduledTask || false,
+  });
 
   const logsDir = path.join(groupDir, 'logs');
   fs.mkdirSync(logsDir, { recursive: true });
@@ -385,10 +430,16 @@ export async function runContainerAgent(
 
     const killOnTimeout = () => {
       timedOut = true;
-      logger.error({ group: group.name, containerName }, 'Container timeout, stopping gracefully');
+      logger.error(
+        { group: group.name, containerName },
+        'Container timeout, stopping gracefully',
+      );
       exec(stopContainer(containerName), { timeout: 15000 }, (err) => {
         if (err) {
-          logger.warn({ group: group.name, containerName, err }, 'Graceful stop failed, force killing');
+          logger.warn(
+            { group: group.name, containerName, err },
+            'Graceful stop failed, force killing',
+          );
           container.kill('SIGKILL');
         }
       });
@@ -409,15 +460,26 @@ export async function runContainerAgent(
       if (timedOut) {
         const ts = new Date().toISOString().replace(/[:.]/g, '-');
         const timeoutLog = path.join(logsDir, `container-${ts}.log`);
-        fs.writeFileSync(timeoutLog, [
-          `=== Container Run Log (TIMEOUT) ===`,
-          `Timestamp: ${new Date().toISOString()}`,
-          `Group: ${group.name}`,
-          `Container: ${containerName}`,
-          `Duration: ${duration}ms`,
-          `Exit Code: ${code}`,
-          `Had Streaming Output: ${hadStreamingOutput}`,
-        ].join('\n'));
+        fs.writeFileSync(
+          timeoutLog,
+          [
+            `=== Container Run Log (TIMEOUT) ===`,
+            `Timestamp: ${new Date().toISOString()}`,
+            `Group: ${group.name}`,
+            `Container: ${containerName}`,
+            `Duration: ${duration}ms`,
+            `Exit Code: ${code}`,
+            `Had Streaming Output: ${hadStreamingOutput}`,
+          ].join('\n'),
+        );
+
+        trackContainerTimeout({
+          groupFolder: group.folder,
+          groupName: group.name,
+          containerName,
+          durationMs: duration,
+          hadOutput: hadStreamingOutput,
+        });
 
         // Timeout after output = idle cleanup, not failure.
         // The agent already sent its response; this is just the
@@ -427,6 +489,14 @@ export async function runContainerAgent(
             { group: group.name, containerName, duration, code },
             'Container timed out after output (idle cleanup)',
           );
+          trackAgentComplete({
+            groupFolder: group.folder,
+            groupName: group.name,
+            status: 'success',
+            durationMs: duration,
+            exitCode: code,
+            hadOutput: true,
+          });
           outputChain.then(() => {
             resolve({
               status: 'success',
@@ -442,6 +512,15 @@ export async function runContainerAgent(
           'Container timed out with no output',
         );
 
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: 'timeout',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: false,
+        });
+
         resolve({
           status: 'error',
           result: null,
@@ -452,7 +531,8 @@ export async function runContainerAgent(
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const logFile = path.join(logsDir, `container-${timestamp}.log`);
-      const isVerbose = process.env.LOG_LEVEL === 'debug' || process.env.LOG_LEVEL === 'trace';
+      const isVerbose =
+        process.env.LOG_LEVEL === 'debug' || process.env.LOG_LEVEL === 'trace';
 
       const logLines = [
         `=== Container Run Log ===`,
@@ -520,6 +600,15 @@ export async function runContainerAgent(
           'Container exited with error',
         );
 
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: 'error',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: hadStreamingOutput,
+        });
+
         resolve({
           status: 'error',
           result: null,
@@ -535,6 +624,14 @@ export async function runContainerAgent(
             { group: group.name, duration, newSessionId },
             'Container completed (streaming mode)',
           );
+          trackAgentComplete({
+            groupFolder: group.folder,
+            groupName: group.name,
+            status: 'success',
+            durationMs: duration,
+            exitCode: code,
+            hadOutput: hadStreamingOutput,
+          });
           resolve({
             status: 'success',
             result: null,
@@ -573,6 +670,15 @@ export async function runContainerAgent(
           'Container completed',
         );
 
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: output.status === 'success' ? 'success' : 'error',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: !!output.result,
+        });
+
         resolve(output);
       } catch (err) {
         logger.error(
@@ -585,6 +691,15 @@ export async function runContainerAgent(
           'Failed to parse container output',
         );
 
+        trackAgentComplete({
+          groupFolder: group.folder,
+          groupName: group.name,
+          status: 'error',
+          durationMs: duration,
+          exitCode: code,
+          hadOutput: false,
+        });
+
         resolve({
           status: 'error',
           result: null,
@@ -595,7 +710,10 @@ export async function runContainerAgent(
 
     container.on('error', (err) => {
       clearTimeout(timeout);
-      logger.error({ group: group.name, containerName, error: err }, 'Container spawn error');
+      logger.error(
+        { group: group.name, containerName, error: err },
+        'Container spawn error',
+      );
       resolve({
         status: 'error',
         result: null,

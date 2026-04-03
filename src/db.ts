@@ -5,7 +5,14 @@ import path from 'path';
 import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
-import { NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog, TransactionRecord } from './types.js';
+import { trackMessageInbound, trackTransaction } from './metrics.js';
+import {
+  NewMessage,
+  RegisteredGroup,
+  ScheduledTask,
+  TaskRunLog,
+  TransactionRecord,
+} from './types.js';
 
 let db: Database.Database;
 
@@ -109,9 +116,9 @@ function createSchema(database: Database.Database): void {
       `ALTER TABLE messages ADD COLUMN is_bot_message INTEGER DEFAULT 0`,
     );
     // Backfill: mark existing bot messages that used the content prefix pattern
-    database.prepare(
-      `UPDATE messages SET is_bot_message = 1 WHERE content LIKE ?`,
-    ).run(`${ASSISTANT_NAME}:%`);
+    database
+      .prepare(`UPDATE messages SET is_bot_message = 1 WHERE content LIKE ?`)
+      .run(`${ASSISTANT_NAME}:%`);
   } catch {
     /* column already exists */
   }
@@ -127,17 +134,21 @@ function createSchema(database: Database.Database): void {
 
   // Add channel and is_group columns if they don't exist (migration for existing DBs)
   try {
-    database.exec(
-      `ALTER TABLE chats ADD COLUMN channel TEXT`,
-    );
-    database.exec(
-      `ALTER TABLE chats ADD COLUMN is_group INTEGER DEFAULT 0`,
-    );
+    database.exec(`ALTER TABLE chats ADD COLUMN channel TEXT`);
+    database.exec(`ALTER TABLE chats ADD COLUMN is_group INTEGER DEFAULT 0`);
     // Backfill from JID patterns
-    database.exec(`UPDATE chats SET channel = 'whatsapp', is_group = 1 WHERE jid LIKE '%@g.us'`);
-    database.exec(`UPDATE chats SET channel = 'whatsapp', is_group = 0 WHERE jid LIKE '%@s.whatsapp.net'`);
-    database.exec(`UPDATE chats SET channel = 'discord', is_group = 1 WHERE jid LIKE 'dc:%'`);
-    database.exec(`UPDATE chats SET channel = 'telegram', is_group = 1 WHERE jid LIKE 'tg:%'`);
+    database.exec(
+      `UPDATE chats SET channel = 'whatsapp', is_group = 1 WHERE jid LIKE '%@g.us'`,
+    );
+    database.exec(
+      `UPDATE chats SET channel = 'whatsapp', is_group = 0 WHERE jid LIKE '%@s.whatsapp.net'`,
+    );
+    database.exec(
+      `UPDATE chats SET channel = 'discord', is_group = 1 WHERE jid LIKE 'dc:%'`,
+    );
+    database.exec(
+      `UPDATE chats SET channel = 'telegram', is_group = 1 WHERE jid LIKE 'tg:%'`,
+    );
   } catch {
     /* columns already exist */
   }
@@ -275,6 +286,21 @@ export function storeMessage(msg: NewMessage): void {
     msg.is_from_me ? 1 : 0,
     msg.is_bot_message ? 1 : 0,
   );
+
+  // Track inbound user messages (not bot messages) for user/volume metrics
+  if (!msg.is_from_me && !msg.is_bot_message) {
+    const isGroup =
+      msg.chat_jid.includes('@g.us') || msg.chat_jid.startsWith('tg:');
+    const channel = msg.chat_jid.startsWith('tg:') ? 'telegram' : 'whatsapp';
+    trackMessageInbound({
+      userId: msg.sender,
+      userName: msg.sender_name,
+      groupFolder: '', // Not available at storage time; tracked at invocation time
+      chatJid: msg.chat_jid,
+      channel,
+      isGroup,
+    });
+  }
 }
 
 /**
@@ -564,14 +590,12 @@ export function getRegisteredGroup(
     containerConfig: row.container_config
       ? JSON.parse(row.container_config)
       : undefined,
-    requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
+    requiresTrigger:
+      row.requires_trigger === null ? undefined : row.requires_trigger === 1,
   };
 }
 
-export function setRegisteredGroup(
-  jid: string,
-  group: RegisteredGroup,
-): void {
+export function setRegisteredGroup(jid: string, group: RegisteredGroup): void {
   if (!isValidGroupFolder(group.folder)) {
     throw new Error(`Invalid group folder "${group.folder}" for JID ${jid}`);
   }
@@ -590,9 +614,7 @@ export function setRegisteredGroup(
 }
 
 export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
-  const rows = db
-    .prepare('SELECT * FROM registered_groups')
-    .all() as Array<{
+  const rows = db.prepare('SELECT * FROM registered_groups').all() as Array<{
     jid: string;
     name: string;
     folder: string;
@@ -618,7 +640,8 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
       containerConfig: row.container_config
         ? JSON.parse(row.container_config)
         : undefined,
-      requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
+      requiresTrigger:
+        row.requires_trigger === null ? undefined : row.requires_trigger === 1,
     };
   }
   return result;
@@ -628,7 +651,10 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
 
 const MAX_SYNC_RETRIES = 10;
 
-export function logTransaction(record: Omit<TransactionRecord, 'id' | 'synced_at' | 'sync_error'>): void {
+export function logTransaction(
+  record: Omit<TransactionRecord, 'id' | 'synced_at' | 'sync_error'>,
+  sourceGroup?: string,
+): void {
   db.prepare(
     `INSERT OR IGNORE INTO transactions (signature, protocol, mint, wallet_address, amount, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -640,6 +666,15 @@ export function logTransaction(record: Omit<TransactionRecord, 'id' | 'synced_at
     record.amount,
     record.created_at,
   );
+
+  trackTransaction({
+    signature: record.signature,
+    protocol: record.protocol,
+    walletAddress: record.wallet_address,
+    mint: record.mint,
+    amount: record.amount,
+    groupFolder: sourceGroup || '',
+  });
 }
 
 /**
@@ -654,11 +689,13 @@ export function enrichTransaction(
   mint: string | null,
   amount: string | null,
 ): boolean {
-  const result = db.prepare(
-    `UPDATE transactions
+  const result = db
+    .prepare(
+      `UPDATE transactions
      SET protocol = ?, wallet_address = ?, mint = COALESCE(?, mint), amount = COALESCE(?, amount)
      WHERE signature = ? AND (protocol IS NULL OR wallet_address IS NULL OR protocol = 'auto' OR wallet_address = 'auto')`,
-  ).run(protocol, walletAddress, mint, amount, signature);
+    )
+    .run(protocol, walletAddress, mint, amount, signature);
   return result.changes > 0;
 }
 
@@ -689,7 +726,9 @@ export function markTransactionSyncError(ids: number[], error: string): void {
   ).run(error, ...ids);
 }
 
-export function getTransactionBySignature(signature: string): TransactionRecord | undefined {
+export function getTransactionBySignature(
+  signature: string,
+): TransactionRecord | undefined {
   return db
     .prepare('SELECT * FROM transactions WHERE signature = ?')
     .get(signature) as TransactionRecord | undefined;
@@ -755,4 +794,46 @@ function migrateJsonState(): void {
       }
     }
   }
+}
+
+// --- Metrics query helpers ---
+
+/**
+ * Count distinct users (senders) who sent messages in the last N days.
+ * Used for DAU (days=1), WAU (days=7), MAU (days=30) gauge snapshots.
+ */
+export function getActiveUserCount(days: number): number {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const row = db
+    .prepare(
+      `SELECT COUNT(DISTINCT sender) as count FROM messages
+       WHERE timestamp > ? AND is_bot_message = 0 AND is_from_me = 0`,
+    )
+    .get(since) as { count: number };
+  return row.count;
+}
+
+/**
+ * Count distinct agents (groups by chat_jid) that had user messages in the last N days.
+ * Represents active agents — groups where real interaction happened.
+ */
+export function getActiveAgentCount(days: number): number {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const row = db
+    .prepare(
+      `SELECT COUNT(DISTINCT chat_jid) as count FROM messages
+       WHERE timestamp > ? AND is_bot_message = 0 AND is_from_me = 0`,
+    )
+    .get(since) as { count: number };
+  return row.count;
+}
+
+/**
+ * Get total transaction count.
+ */
+export function getTransactionCount(): number {
+  const row = db
+    .prepare('SELECT COUNT(*) as count FROM transactions')
+    .get() as { count: number };
+  return row.count;
 }

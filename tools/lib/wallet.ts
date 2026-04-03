@@ -138,7 +138,7 @@ export function jupiterBase(): string {
   return process.env.JUPITER_API_KEY ? 'https://api.jup.ag' : 'https://lite-api.jup.ag';
 }
 
-const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
+const IPC_TRANSACTIONS_DIR = '/data/ipc/transactions';
 
 // ── Direct API sync (best-effort, non-blocking) ──────────────────────────────
 async function syncTransactionToApi(

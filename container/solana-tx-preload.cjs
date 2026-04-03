@@ -35,7 +35,7 @@ const http = require('http');
 const https = require('https');
 const zlib = require('zlib');
 
-const IPC_DIR = '/workspace/ipc/transactions';
+const IPC_DIR = '/data/ipc/transactions';
 const SYNC_API_URL = process.env.TRANSACTION_SYNC_API_URL || 'https://api.breeze.baby/agent/stats-sync-up';
 
 // Save a reference to the original fetch BEFORE we patch it,

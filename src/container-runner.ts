@@ -32,8 +32,14 @@ import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
 
 // Sentinel markers for robust output parsing (must match agent-runner)
-const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
-const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
+const OUTPUT_START_MARKER = '---SOLCLAW_OUTPUT_START---';
+const OUTPUT_END_MARKER = '---SOLCLAW_OUTPUT_END---';
+
+// Canonical container IPC path. Keep this in sync with `container/agent-runner/src/paths.ts`.
+const IPC_DIR = '/data/ipc';
+// Legacy container IPC path for older images that still read `/workspace/ipc`.
+// TEMPORARY: Remove this fallback once all active images use `IPC_DIR` (`/data/ipc`).
+const LEGACY_IPC_DIR = '/workspace/ipc';
 
 export interface ContainerInput {
   prompt: string;
@@ -172,7 +178,14 @@ function buildVolumeMounts(
   fs.mkdirSync(path.join(groupIpcDir, 'transactions'), { recursive: true });
   mounts.push({
     hostPath: groupIpcDir,
-    containerPath: '/workspace/ipc',
+    containerPath: IPC_DIR,
+    readonly: false,
+  });
+  // Legacy backward-compat mount for older container images that read `/workspace/ipc`.
+  // TODO(remove-legacy-ipc-mount): delete this mount after all deployed images are on `/data/ipc`.
+  mounts.push({
+    hostPath: groupIpcDir,
+    containerPath: LEGACY_IPC_DIR,
     readonly: false,
   });
 

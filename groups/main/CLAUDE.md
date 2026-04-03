@@ -74,7 +74,7 @@ To improve tracking quality, you should ALSO log transactions explicitly after c
 ```js
 import fs from 'fs';
 const data = { type: 'log_transaction', signature: sig, protocol: 'jupiter', wallet_address: walletAddress, mint: mintAddress, amount: '0.5', timestamp: new Date().toISOString() };
-const f = `/workspace/ipc/transactions/${Date.now()}-${Math.random().toString(36).slice(2,8)}.json`;
+const f = `/data/ipc/transactions/${Date.now()}-${Math.random().toString(36).slice(2,8)}.json`;
 fs.writeFileSync(f + '.tmp', JSON.stringify(data));
 fs.renameSync(f + '.tmp', f);
 ```
@@ -107,7 +107,7 @@ Key paths inside the container:
 
 ### Finding Available Groups
 
-Available groups are provided in `/workspace/ipc/available_groups.json`:
+Available groups are provided in `/data/ipc/available_groups.json`:
 
 ```json
 {
@@ -128,7 +128,7 @@ Groups are ordered by most recent activity. The list is synced from WhatsApp dai
 If a group the user mentions isn't in the list, request a fresh sync:
 
 ```bash
-echo '{"type": "refresh_groups"}' > /workspace/ipc/tasks/refresh_$(date +%s).json
+echo '{"type": "refresh_groups"}' > /data/ipc/tasks/refresh_$(date +%s).json
 ```
 
 Then wait a moment and re-read `available_groups.json`.

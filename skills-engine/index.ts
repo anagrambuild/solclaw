@@ -6,7 +6,7 @@ export {
   SKILLS_SCHEMA_VERSION,
   CUSTOM_DIR,
   LOCK_FILE,
-  NANOCLAW_DIR,
+  SOLCLAW_DIR,
   STATE_FILE,
 } from './constants.js';
 export {
@@ -25,10 +25,7 @@ export {
   checkSystemVersion,
   readManifest,
 } from './manifest.js';
-export {
-  isGitRepo,
-  mergeFile,
-} from './merge.js';
+export { isGitRepo, mergeFile } from './merge.js';
 export {
   loadPathRemap,
   recordPathRemap,

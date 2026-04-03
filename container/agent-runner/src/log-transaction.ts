@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { normalizeProtocol } from './known-protocols.js';
 
-const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
+import { IPC_TRANSACTIONS_DIR } from './paths.js';
 
 // ── Direct API sync (best-effort, non-blocking) ──────────────────────────────
 async function syncTransactionToApi(

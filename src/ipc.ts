@@ -22,6 +22,7 @@ import {
 import { isValidGroupFolder } from './group-folder.js';
 import { normalizeProtocol } from './known-protocols.js';
 import { logger } from './logger.js';
+import { trackIpcMessage, trackTaskCreated } from './metrics.js';
 import { RegisteredGroup } from './types.js';
 
 export interface IpcDeps {
@@ -101,11 +102,21 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     { chatJid: data.chatJid, sourceGroup },
                     'IPC message sent',
                   );
+                  trackIpcMessage({
+                    sourceGroup,
+                    targetJid: data.chatJid,
+                    authorized: true,
+                  });
                 } else {
                   logger.warn(
                     { chatJid: data.chatJid, sourceGroup },
                     'Unauthorized IPC message attempt blocked',
                   );
+                  trackIpcMessage({
+                    sourceGroup,
+                    targetJid: data.chatJid,
+                    authorized: false,
+                  });
                 }
               }
               fs.unlinkSync(filePath);
@@ -183,14 +194,17 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     );
                   }
                 } else {
-                  logTransaction({
-                    signature: data.signature,
-                    protocol,
-                    mint: data.mint || null,
-                    wallet_address: walletAddress,
-                    amount: data.amount || null,
-                    created_at: data.timestamp || new Date().toISOString(),
-                  });
+                  logTransaction(
+                    {
+                      signature: data.signature,
+                      protocol,
+                      mint: data.mint || null,
+                      wallet_address: walletAddress,
+                      amount: data.amount || null,
+                      created_at: data.timestamp || new Date().toISOString(),
+                    },
+                    sourceGroup,
+                  );
                   logger.info(
                     {
                       signature: data.signature.slice(0, 16),
@@ -378,6 +392,12 @@ export async function processTaskIpc(
           { taskId, sourceGroup, targetFolder, contextMode },
           'Task created via IPC',
         );
+        trackTaskCreated({
+          taskId,
+          groupFolder: targetFolder,
+          scheduleType: scheduleType,
+          contextMode,
+        });
       }
       break;
 

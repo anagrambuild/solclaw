@@ -15,6 +15,7 @@
  */
 
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
 import {
   query,
@@ -68,6 +69,17 @@ import {
 } from './paths.js';
 const IPC_POLL_MS = 500;
 const SYNC_API_URL = 'https://api.breeze.baby/agent/stats-sync-up';
+
+interface LoadedSwigConfig {
+  rpcUrl: string;
+  authorityPublicKey: string;
+  walletAddress?: string;
+  swigAccountAddress?: string;
+  feeMode?: 'paymaster' | 'gas-sponsor' | 'self-funded';
+  swigPaymasterPubkey?: string;
+  swigPaymasterNetwork?: 'mainnet' | 'devnet';
+  gasSponsorUrl?: string;
+}
 
 /**
  * Push-based async iterable for streaming user messages to the SDK.
@@ -130,6 +142,96 @@ function writeOutput(output: ContainerOutput): void {
 
 function log(message: string): void {
   console.error(`[agent-runner] ${message}`);
+}
+
+function loadSwigConfig(isMain: boolean): LoadedSwigConfig | null {
+  if (!isMain) return null;
+
+  const configPath = '/workspace/project/config/solana-config.json';
+  if (!fs.existsSync(configPath)) return null;
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+      wallet?: {
+        signingMethod?: string;
+        publicKey?: string;
+        authorityPublicKey?: string;
+        swigWalletAddress?: string;
+        swigAccountAddress?: string;
+        feeMode?: 'paymaster' | 'gas-sponsor' | 'self-funded';
+        swigPaymasterPubkey?: string;
+        swigPaymasterNetwork?: 'mainnet' | 'devnet';
+        gasSponsorUrl?: string;
+      };
+      preferences?: { rpcUrl?: string };
+    };
+
+    if (raw.wallet?.signingMethod !== 'swig') return null;
+
+    const authorityPublicKey =
+      raw.wallet.authorityPublicKey || raw.wallet.publicKey;
+    const rpcUrl = raw.preferences?.rpcUrl;
+    if (!authorityPublicKey || !rpcUrl) {
+      log(
+        'Swig config is missing authorityPublicKey or rpcUrl; skipping MCP registration',
+      );
+      return null;
+    }
+
+    return {
+      rpcUrl,
+      authorityPublicKey,
+      walletAddress: raw.wallet.swigWalletAddress,
+      swigAccountAddress: raw.wallet.swigAccountAddress,
+      feeMode: raw.wallet.feeMode,
+      swigPaymasterPubkey: raw.wallet.swigPaymasterPubkey,
+      swigPaymasterNetwork: raw.wallet.swigPaymasterNetwork,
+      gasSponsorUrl: raw.wallet.gasSponsorUrl,
+    };
+  } catch (err) {
+    log(
+      `Failed to read Swig config: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
+  }
+}
+
+function buildSwigSystemPromptAppend(config: LoadedSwigConfig): string {
+  const lines = [
+    '## Swig Wallet Mode',
+    'This workspace is configured to use Swig as the Solana wallet backend.',
+    'Prefer `mcp__swig_wallet__*` tools over local CLI tools whenever the request involves wallet state, authority management, SOL transfers, or custom transaction execution.',
+    `RPC URL: ${config.rpcUrl}`,
+    `Authority public key: ${config.authorityPublicKey}`,
+    `Stored Swig wallet address: ${config.walletAddress || 'not created yet'}`,
+    `Stored Swig account address: ${config.swigAccountAddress || 'not created yet'}`,
+  ];
+
+  if (config.feeMode) {
+    lines.push(`Fee mode: ${config.feeMode}`);
+  }
+  if (config.feeMode === 'paymaster') {
+    lines.push(
+      `Swig paymaster pubkey: ${config.swigPaymasterPubkey || 'missing'}`,
+      `Swig paymaster network: ${config.swigPaymasterNetwork || 'missing'}`,
+      'Before sending transactions, call `configure_paymaster` using the stored paymaster settings plus the `SWIG_PAYMASTER_API_KEY` value from the environment.',
+    );
+  }
+  if (config.feeMode === 'gas-sponsor') {
+    lines.push(
+      `Gas sponsor URL: ${config.gasSponsorUrl || 'missing'}`,
+      'Before sending transactions, call `configure_gas_sponsor` with the stored gas sponsor URL.',
+    );
+  }
+
+  lines.push(
+    'Always call `configure_rpc` first with the stored RPC URL.',
+    'If `SWIG_AUTHORITY_PRIVATE_KEY` is available in the environment, load it with `configure_agent_keypair` before wallet operations.',
+    'If no wallet exists yet, create it with `create_swig_wallet`.',
+    'After creating a wallet or discovering updated Swig addresses, persist `swigWalletAddress` and `swigAccountAddress` back into `config/solana-config.json`.',
+  );
+
+  return lines.join('\n');
 }
 
 function getSessionSummary(
@@ -441,6 +543,20 @@ async function runQuery(
   let messageCount = 0;
   let resultCount = 0;
 
+  const swigConfig = loadSwigConfig(containerInput.isMain);
+  let swigMcpServerPath: string | null = null;
+  if (swigConfig) {
+    try {
+      const require = createRequire(import.meta.url);
+      swigMcpServerPath =
+        require.resolve('@swig-wallet/mcp-server/dist/index.js');
+    } catch (err) {
+      log(
+        `Swig MCP server is configured but the package is unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   // Load global CLAUDE.md as additional system context (shared across all groups)
   const globalClaudeMdPath = '/workspace/global/CLAUDE.md';
   let globalClaudeMd: string | undefined;
@@ -468,10 +584,14 @@ For SOL transactions, use wSOL mint: So11111111111111111111111111111111111111112
 This applies to ALL transaction types: swaps, transfers, stakes, account creation, lending, borrowing, NFT mints, etc.
 `;
 
-  // Prepend tx logging instruction to the system prompt append
-  const systemPromptAppend = globalClaudeMd
-    ? txLoggingInstruction + '\n' + globalClaudeMd
-    : txLoggingInstruction;
+  const systemPromptSections = [txLoggingInstruction];
+  if (swigConfig && swigMcpServerPath) {
+    systemPromptSections.push(buildSwigSystemPromptAppend(swigConfig));
+  }
+  if (globalClaudeMd) {
+    systemPromptSections.push(globalClaudeMd);
+  }
+  const systemPromptAppend = systemPromptSections.join('\n\n');
 
   // Discover additional directories mounted at /workspace/extra/*
   // These are passed to the SDK so their CLAUDE.md files are loaded automatically
@@ -489,6 +609,54 @@ This applies to ALL transaction types: swaps, transfers, stakes, account creatio
     log(`Additional directories: ${extraDirs.join(', ')}`);
   }
 
+  const allowedTools = [
+    'Bash',
+    'Read',
+    'Write',
+    'Edit',
+    'Glob',
+    'Grep',
+    'WebSearch',
+    'WebFetch',
+    'Task',
+    'TaskOutput',
+    'TaskStop',
+    'TeamCreate',
+    'TeamDelete',
+    'SendMessage',
+    'TodoWrite',
+    'ToolSearch',
+    'Skill',
+    'NotebookEdit',
+    'mcp__nanoclaw__*',
+  ];
+
+  if (swigConfig && swigMcpServerPath) {
+    allowedTools.push('mcp__swig_wallet__*');
+  }
+
+  const mcpServers: Record<
+    string,
+    { command: string; args: string[]; env?: Record<string, string> }
+  > = {
+    nanoclaw: {
+      command: 'node',
+      args: [mcpServerPath],
+      env: {
+        SOLCLAW_CHAT_JID: containerInput.chatJid,
+        SOLCLAW_GROUP_FOLDER: containerInput.groupFolder,
+        SOLCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
+      },
+    },
+  };
+
+  if (swigConfig && swigMcpServerPath) {
+    mcpServers.swig_wallet = {
+      command: 'node',
+      args: [swigMcpServerPath],
+    };
+  }
+
   for await (const message of query({
     prompt: stream,
     options: {
@@ -501,42 +669,12 @@ This applies to ALL transaction types: swaps, transfers, stakes, account creatio
         preset: 'claude_code' as const,
         append: systemPromptAppend,
       },
-      allowedTools: [
-        'Bash',
-        'Read',
-        'Write',
-        'Edit',
-        'Glob',
-        'Grep',
-        'WebSearch',
-        'WebFetch',
-        'Task',
-        'TaskOutput',
-        'TaskStop',
-        'TeamCreate',
-        'TeamDelete',
-        'SendMessage',
-        'TodoWrite',
-        'ToolSearch',
-        'Skill',
-        'NotebookEdit',
-        'mcp__nanoclaw__*',
-      ],
+      allowedTools,
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       settingSources: ['project', 'user'],
-      mcpServers: {
-        nanoclaw: {
-          command: 'node',
-          args: [mcpServerPath],
-          env: {
-            SOLCLAW_CHAT_JID: containerInput.chatJid,
-            SOLCLAW_GROUP_FOLDER: containerInput.groupFolder,
-            SOLCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
-          },
-        },
-      },
+      mcpServers,
       hooks: {
         PreCompact: [
           { hooks: [createPreCompactHook(containerInput.assistantName)] },

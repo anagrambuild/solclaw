@@ -63,6 +63,7 @@ A personal Claude assistant accessible via WhatsApp, with persistent memory per 
 │  │    • WebSearch, WebFetch (internet access)                     │   │
 │  │    • agent-browser (browser automation)                        │   │
 │  │    • mcp__nanoclaw__* (scheduler tools via IPC)                │   │
+│  │    • mcp__swig_wallet__* (when Swig signing is configured)     │   │
 │  │                                                                │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │                                                                      │

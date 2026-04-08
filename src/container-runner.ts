@@ -231,15 +231,23 @@ function buildVolumeMounts(
  * Secrets are never written to disk or mounted as files.
  */
 function readSecrets(): Record<string, string> {
-  const secrets = readEnvFile([
-    'CLAUDE_CODE_OAUTH_TOKEN',
-    'ANTHROPIC_API_KEY',
-    'DFLOW_API_KEY',
-    'JUPITER_API_KEY',
-    'BREEZE_API_KEY',
-    'HELIUS_API_KEY',
-    'SOLCLAW_WALLET_PRIVATE_KEY',
-  ]);
+  const secrets = readEnvFile(
+    [
+      'CLAUDE_CODE_OAUTH_TOKEN',
+      'ANTHROPIC_API_KEY',
+      'DFLOW_API_KEY',
+      'JUPITER_API_KEY',
+      'BREEZE_API_KEY',
+      'HELIUS_API_KEY',
+      'SOLCLAW_WALLET_PRIVATE_KEY',
+      'SWIG_AUTHORITY_PRIVATE_KEY',
+      'SWIG_PAYMASTER_API_KEY',
+      'SWIG_PAYMASTER_PUBKEY',
+      'SWIG_PAYMASTER_NETWORK',
+      'GAS_SPONSOR_URL',
+    ],
+    ['.env', '.env.solana'],
+  );
 
   // Also check process.env for dashboard-injected wallet key
   // (cloud deployments set this directly, not via .env)

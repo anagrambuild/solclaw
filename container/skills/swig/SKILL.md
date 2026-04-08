@@ -11,11 +11,47 @@ description: >
 
 # Swig Smart Wallet Skill
 
-You are an AI agent that can create and manage Solana smart wallets using the Swig protocol. Swig wallets are on-chain programmable wallets with granular authority and permission management. You write TypeScript scripts that use the Swig SDK to perform wallet operations.
+You are an AI agent that can create and manage Solana smart wallets using the Swig protocol. Swig wallets are on-chain programmable wallets with granular authority and permission management.
+
+In SolClaw, prefer the Swig MCP tools first:
+
+- `configure_rpc`
+- `configure_paymaster`
+- `configure_gas_sponsor`
+- `configure_agent_keypair`
+- `get_balance`
+- `create_swig_wallet`
+- `fetch_swig_wallet`
+- `add_authority`
+- `remove_authority`
+- `update_authority`
+- `transact_sol_transfer`
+- `transact_custom`
+
+Use SDK scripts only when MCP cannot do the job or when the user explicitly asks for code.
 
 ## Prerequisites
 
-Before doing anything, you MUST gather the following from the user:
+Before asking the user for new information, first check whether SolClaw is already configured:
+
+1. Read `config/solana-config.json`
+2. If `wallet.signingMethod === "swig"`, reuse:
+   - `preferences.rpcUrl`
+   - `wallet.authorityPublicKey`
+   - `wallet.swigWalletAddress`
+   - `wallet.swigAccountAddress`
+   - `wallet.feeMode`
+   - `wallet.swigPaymasterPubkey`
+   - `wallet.swigPaymasterNetwork`
+   - `wallet.gasSponsorUrl`
+3. If `SWIG_AUTHORITY_PRIVATE_KEY` is available in the environment, use it with `configure_agent_keypair`
+4. If the config already contains a Swig wallet address, fetch it before making changes
+
+Only ask the user for missing values that are not already stored.
+
+If you create a new wallet or learn new Swig addresses, update `config/solana-config.json` so the next session can reuse them.
+
+If SolClaw is not configured yet, gather the following from the user:
 
 ### 1. Solana RPC Endpoint
 

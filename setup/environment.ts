@@ -43,22 +43,28 @@ export async function run(_args: string[]): Promise<void> {
   const hasEnv = fs.existsSync(path.join(projectRoot, '.env'));
 
   const authDir = path.join(projectRoot, 'store', 'auth');
-  const hasAuth =
-    fs.existsSync(authDir) &&
-    fs.readdirSync(authDir).length > 0;
+  const hasAuth = fs.existsSync(authDir) && fs.readdirSync(authDir).length > 0;
 
   // Check Solana config
-  const solanaConfigPath = path.join(projectRoot, 'config', 'solana-config.json');
+  const solanaConfigPath = path.join(
+    projectRoot,
+    'config',
+    'solana-config.json',
+  );
   let hasSolanaConfig = false;
   let solanaPublicKey = '';
   let solanaNetwork = '';
   let solanaSigningMethod = '';
   if (fs.existsSync(solanaConfigPath)) {
     try {
-      const solanaConfig = JSON.parse(fs.readFileSync(solanaConfigPath, 'utf-8'));
+      const solanaConfig = JSON.parse(
+        fs.readFileSync(solanaConfigPath, 'utf-8'),
+      );
       if (solanaConfig.setupComplete && solanaConfig.wallet?.publicKey) {
         hasSolanaConfig = true;
-        solanaPublicKey = solanaConfig.wallet.publicKey;
+        solanaPublicKey =
+          solanaConfig.wallet.swigWalletAddress ||
+          solanaConfig.wallet.publicKey;
         solanaNetwork = solanaConfig.preferences?.rpcUrl || '';
         solanaSigningMethod = solanaConfig.wallet?.signingMethod || '';
       }
@@ -77,9 +83,9 @@ export async function run(_args: string[]): Promise<void> {
     if (fs.existsSync(dbPath)) {
       try {
         const db = new Database(dbPath, { readonly: true });
-        const row = db.prepare(
-          'SELECT COUNT(*) as count FROM registered_groups',
-        ).get() as { count: number };
+        const row = db
+          .prepare('SELECT COUNT(*) as count FROM registered_groups')
+          .get() as { count: number };
         if (row.count > 0) hasRegisteredGroups = true;
         db.close();
       } catch {
@@ -88,8 +94,19 @@ export async function run(_args: string[]): Promise<void> {
     }
   }
 
-  logger.info({ platform, wsl, appleContainer, docker, hasEnv, hasAuth, hasRegisteredGroups, hasSolanaConfig },
-    'Environment check complete');
+  logger.info(
+    {
+      platform,
+      wsl,
+      appleContainer,
+      docker,
+      hasEnv,
+      hasAuth,
+      hasRegisteredGroups,
+      hasSolanaConfig,
+    },
+    'Environment check complete',
+  );
 
   emitStatus('CHECK_ENVIRONMENT', {
     PLATFORM: platform,

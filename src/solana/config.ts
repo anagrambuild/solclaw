@@ -8,11 +8,18 @@ import path from 'path';
 
 export interface SolanaConfig {
   wallet: {
-    signingMethod: 'standard' | 'crossmint';
+    signingMethod: 'standard' | 'crossmint' | 'swig';
     privateKey?: string;
     publicKey: string;
     crossmintApiKey?: string;
     crossmintEnvironment?: string;
+    authorityPublicKey?: string;
+    swigWalletAddress?: string;
+    swigAccountAddress?: string;
+    feeMode?: 'paymaster' | 'gas-sponsor' | 'self-funded';
+    swigPaymasterPubkey?: string;
+    swigPaymasterNetwork?: 'mainnet' | 'devnet';
+    gasSponsorUrl?: string;
   };
   preferences: {
     rpcUrl: string;
@@ -51,9 +58,10 @@ export async function loadSolanaConfig(
     throw new Error('Setup incomplete. Run: npm run setup');
   }
 
-  // Dashboard-injected key overrides config file wallet
+  // Dashboard-injected key overrides config file wallet for direct keypair mode.
+  // Swig uses a separate authority key and should not be coerced into standard mode.
   const injectedKey = process.env.SOLCLAW_WALLET_PRIVATE_KEY;
-  if (injectedKey) {
+  if (injectedKey && config.wallet.signingMethod !== 'swig') {
     const { Keypair } = await import('@solana/web3.js');
     const bs58 = (await import('bs58')).default;
     const secretKey = bs58.decode(injectedKey);
@@ -79,6 +87,22 @@ export async function isSolanaConfigured(
 
     if (config.wallet.signingMethod === 'crossmint') {
       return config.setupComplete && !!config.wallet.crossmintApiKey;
+    }
+
+    if (config.wallet.signingMethod === 'swig') {
+      const authorityPublicKey =
+        config.wallet.authorityPublicKey || config.wallet.publicKey;
+      if (!authorityPublicKey) return false;
+
+      if (config.wallet.feeMode === 'paymaster') {
+        return config.setupComplete && !!config.wallet.swigPaymasterPubkey;
+      }
+
+      if (config.wallet.feeMode === 'gas-sponsor') {
+        return config.setupComplete && !!config.wallet.gasSponsorUrl;
+      }
+
+      return config.setupComplete;
     }
 
     // Standard signing

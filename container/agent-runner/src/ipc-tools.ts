@@ -12,10 +12,10 @@ import { CronExpressionParser } from 'cron-parser';
 import { normalizeProtocol } from './known-protocols.js';
 import type { ToolDefinition } from './standard-tools.js';
 
-const IPC_DIR = '/workspace/ipc';
-const MESSAGES_DIR = path.join(IPC_DIR, 'messages');
-const TASKS_DIR = path.join(IPC_DIR, 'tasks');
-const TRANSACTIONS_DIR = path.join(IPC_DIR, 'transactions');
+import { IPC_DIR, IPC_MESSAGES_DIR, IPC_TASKS_DIR, IPC_TRANSACTIONS_DIR } from './paths.js';
+const MESSAGES_DIR = IPC_MESSAGES_DIR;
+const TASKS_DIR = IPC_TASKS_DIR;
+const TRANSACTIONS_DIR = IPC_TRANSACTIONS_DIR;
 
 // ── Context (set once at startup) ──────────────────────────────────────────
 

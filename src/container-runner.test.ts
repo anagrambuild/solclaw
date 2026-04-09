@@ -3,8 +3,8 @@ import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
 
 // Sentinel markers must match container-runner.ts
-const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
-const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
+const OUTPUT_START_MARKER = '---SOLCLAW_OUTPUT_START---';
+const OUTPUT_END_MARKER = '---SOLCLAW_OUTPUT_END---';
 
 // Mock config
 vi.mock('./config.js', () => ({
@@ -71,14 +71,17 @@ let fakeProc: ReturnType<typeof createFakeProcess>;
 
 // Mock child_process.spawn
 vi.mock('child_process', async () => {
-  const actual = await vi.importActual<typeof import('child_process')>('child_process');
+  const actual =
+    await vi.importActual<typeof import('child_process')>('child_process');
   return {
     ...actual,
     spawn: vi.fn(() => fakeProc),
-    exec: vi.fn((_cmd: string, _opts: unknown, cb?: (err: Error | null) => void) => {
-      if (cb) cb(null);
-      return new EventEmitter();
-    }),
+    exec: vi.fn(
+      (_cmd: string, _opts: unknown, cb?: (err: Error | null) => void) => {
+        if (cb) cb(null);
+        return new EventEmitter();
+      },
+    ),
   };
 });
 
@@ -99,7 +102,10 @@ const testInput = {
   isMain: false,
 };
 
-function emitOutputMarker(proc: ReturnType<typeof createFakeProcess>, output: ContainerOutput) {
+function emitOutputMarker(
+  proc: ReturnType<typeof createFakeProcess>,
+  output: ContainerOutput,
+) {
   const json = JSON.stringify(output);
   proc.stdout.push(`${OUTPUT_START_MARKER}\n${json}\n${OUTPUT_END_MARKER}\n`);
 }

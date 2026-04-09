@@ -9,8 +9,8 @@
  *
  * Input protocol:
  *   Stdin: Full ContainerInput JSON (read until EOF)
- *   IPC:   Follow-up messages written as JSON files to /workspace/ipc/input/
- *          Sentinel: /workspace/ipc/input/_close — signals session end
+ *   IPC:   Follow-up messages written as JSON files to /data/ipc/input/
+ *          Sentinel: /data/ipc/input/_close — signals session end
  *
  * Stdout protocol:
  *   Each result is wrapped in OUTPUT_START_MARKER / OUTPUT_END_MARKER pairs.
@@ -53,9 +53,11 @@ interface ContainerOutput {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const IPC_INPUT_DIR = '/workspace/ipc/input';
-const IPC_INPUT_CLOSE_SENTINEL = path.join(IPC_INPUT_DIR, '_close');
-const IPC_TRANSACTIONS_DIR = '/workspace/ipc/transactions';
+import {
+  IPC_INPUT_DIR,
+  IPC_INPUT_CLOSE_SENTINEL,
+  IPC_TRANSACTIONS_DIR,
+} from './paths.js';
 const IPC_POLL_MS = 500;
 const SYNC_API_URL = 'https://api.breeze.baby/agent/stats-sync-up';
 const MAX_ROUNDS = 50;
@@ -213,8 +215,8 @@ async function callOpenAIDirect(
   };
 }
 
-const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
-const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
+const OUTPUT_START_MARKER = '---SOLCLAW_OUTPUT_START---';
+const OUTPUT_END_MARKER = '---SOLCLAW_OUTPUT_END---';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -232,7 +234,9 @@ async function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = '';
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', chunk => { data += chunk; });
+    process.stdin.on('data', (chunk) => {
+      data += chunk;
+    });
     process.stdin.on('end', () => resolve(data));
     process.stdin.on('error', reject);
   });
@@ -240,9 +244,16 @@ async function readStdin(): Promise<string> {
 
 // ── IPC Input ──────────────────────────────────────────────────────────────
 
+/**
+ * Check for _close sentinel.
+ */
 function shouldClose(): boolean {
   if (fs.existsSync(IPC_INPUT_CLOSE_SENTINEL)) {
-    try { fs.unlinkSync(IPC_INPUT_CLOSE_SENTINEL); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(IPC_INPUT_CLOSE_SENTINEL);
+    } catch {
+      /* ignore */
+    }
     return true;
   }
   return false;
@@ -251,7 +262,10 @@ function shouldClose(): boolean {
 function drainIpcInput(): string[] {
   try {
     fs.mkdirSync(IPC_INPUT_DIR, { recursive: true });
-    const files = fs.readdirSync(IPC_INPUT_DIR).filter(f => f.endsWith('.json')).sort();
+    const files = fs
+      .readdirSync(IPC_INPUT_DIR)
+      .filter((f) => f.endsWith('.json'))
+      .sort();
     const messages: string[] = [];
     for (const file of files) {
       const filePath = path.join(IPC_INPUT_DIR, file);
@@ -260,8 +274,14 @@ function drainIpcInput(): string[] {
         fs.unlinkSync(filePath);
         if (data.type === 'message' && data.text) messages.push(data.text);
       } catch (err) {
-        log(`Failed to process input file ${file}: ${err instanceof Error ? err.message : String(err)}`);
-        try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+        log(
+          `Failed to process input file ${file}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        try {
+          fs.unlinkSync(filePath);
+        } catch {
+          /* ignore */
+        }
       }
     }
     return messages;
@@ -454,8 +474,13 @@ async function runAgenticTurn(
 
 async function drainIpcTransactions(): Promise<void> {
   let files: string[];
-  try { files = fs.readdirSync(IPC_TRANSACTIONS_DIR).filter(f => f.endsWith('.json')); }
-  catch { return; }
+  try {
+    files = fs
+      .readdirSync(IPC_TRANSACTIONS_DIR)
+      .filter((f) => f.endsWith('.json'));
+  } catch {
+    return;
+  }
   if (files.length === 0) return;
 
   log(`Draining ${files.length} leftover IPC transaction file(s)...`);
@@ -476,7 +501,13 @@ async function drainIpcTransactions(): Promise<void> {
         entries.push(entry);
       }
       fs.unlinkSync(filePath);
-    } catch { try { fs.unlinkSync(filePath); } catch { /* ignore */ } }
+    } catch {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   if (entries.length === 0) return;
@@ -490,7 +521,9 @@ async function drainIpcTransactions(): Promise<void> {
     });
     log(`Synced ${entries.length} leftover transaction(s) to API`);
   } catch (err) {
-    log(`Failed to sync leftover transactions: ${err instanceof Error ? err.message : String(err)}`);
+    log(
+      `Failed to sync leftover transactions: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 
@@ -502,7 +535,12 @@ async function main(): Promise<void> {
   try {
     const stdinData = await readStdin();
     containerInput = JSON.parse(stdinData);
-    try { fs.unlinkSync('/tmp/input.json'); } catch { /* may not exist */ }
+    // Delete the temp file the entrypoint wrote — it contains secrets
+    try {
+      fs.unlinkSync('/tmp/input.json');
+    } catch {
+      /* may not exist */
+    }
     log(`Received input for group: ${containerInput.groupFolder}`);
   } catch (err) {
     writeOutput({
@@ -568,7 +606,13 @@ async function main(): Promise<void> {
   setCwd('/workspace/group');
 
   fs.mkdirSync(IPC_INPUT_DIR, { recursive: true });
-  try { fs.unlinkSync(IPC_INPUT_CLOSE_SENTINEL); } catch { /* ignore */ }
+
+  // Clean up stale _close sentinel from previous container runs
+  try {
+    fs.unlinkSync(IPC_INPUT_CLOSE_SENTINEL);
+  } catch {
+    /* ignore */
+  }
 
   // Build initial prompt
   let prompt = containerInput.prompt;

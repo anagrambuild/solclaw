@@ -4,13 +4,31 @@ import {
   markTransactionSyncError,
 } from './db.js';
 import { logger } from './logger.js';
+import {
+  trackTransactionSynced,
+  trackTransactionSyncError,
+} from './metrics.js';
 import type { TransactionRecord } from './types.js';
 
-const TRANSACTION_SYNC_API_URL = process.env.TRANSACTION_SYNC_API_URL || 'https://api.breeze.baby/agent/stats-sync-up';
-const TRANSACTION_SYNC_INTERVAL = parseInt(process.env.TRANSACTION_SYNC_INTERVAL || '300000', 10);
-const TRANSACTION_SYNC_RETRY_DELAY = parseInt(process.env.TRANSACTION_SYNC_RETRY_DELAY || '30000', 10);
-const TRANSACTION_SYNC_REQUEST_TIMEOUT = parseInt(process.env.TRANSACTION_SYNC_REQUEST_TIMEOUT || '30000', 10);
-const TRANSACTION_SYNC_BATCH_SIZE = parseInt(process.env.TRANSACTION_SYNC_BATCH_SIZE || '100', 10);
+const TRANSACTION_SYNC_API_URL =
+  process.env.TRANSACTION_SYNC_API_URL ||
+  'https://www.solclaw.ai/api/agent/transactions';
+const TRANSACTION_SYNC_INTERVAL = parseInt(
+  process.env.TRANSACTION_SYNC_INTERVAL || '300000',
+  10,
+);
+const TRANSACTION_SYNC_RETRY_DELAY = parseInt(
+  process.env.TRANSACTION_SYNC_RETRY_DELAY || '30000',
+  10,
+);
+const TRANSACTION_SYNC_REQUEST_TIMEOUT = parseInt(
+  process.env.TRANSACTION_SYNC_REQUEST_TIMEOUT || '30000',
+  10,
+);
+const TRANSACTION_SYNC_BATCH_SIZE = parseInt(
+  process.env.TRANSACTION_SYNC_BATCH_SIZE || '100',
+  10,
+);
 
 let syncRunning = false;
 
@@ -18,11 +36,13 @@ interface TransactionSyncEntry {
   signature: string;
   protocol: string;
   wallet_address: string;
-  mint?: string;
-  amount?: number;
 }
 
-function safeError(message: string, err: unknown, extra: Record<string, unknown> = {}): void {
+function safeError(
+  message: string,
+  err: unknown,
+  extra: Record<string, unknown> = {},
+): void {
   try {
     logger.error({ ...extra, err }, message);
   } catch {
@@ -31,30 +51,21 @@ function safeError(message: string, err: unknown, extra: Record<string, unknown>
 }
 
 function toTransactionEntry(record: TransactionRecord): TransactionSyncEntry {
-  const entry: TransactionSyncEntry = {
+  return {
     signature: record.signature,
     protocol: record.protocol,
     wallet_address: record.wallet_address,
   };
-
-  if (record.mint) {
-    entry.mint = record.mint;
-  }
-
-  if (record.amount !== null) {
-    const amount = Number.parseFloat(record.amount);
-    if (!Number.isFinite(amount)) {
-      throw new Error(`Invalid transaction amount "${record.amount}" for ${record.signature}`);
-    }
-    entry.amount = amount;
-  }
-
-  return entry;
 }
 
-async function postTransactionEntries(entries: TransactionSyncEntry[]): Promise<void> {
+async function postTransactionEntries(
+  entries: TransactionSyncEntry[],
+): Promise<void> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TRANSACTION_SYNC_REQUEST_TIMEOUT);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    TRANSACTION_SYNC_REQUEST_TIMEOUT,
+  );
 
   try {
     const response = await fetch(TRANSACTION_SYNC_API_URL, {
@@ -75,7 +86,9 @@ async function postTransactionEntries(entries: TransactionSyncEntry[]): Promise<
 
 export function startTransactionSyncLoop(): void {
   if (syncRunning) {
-    logger.debug('Transaction sync loop already running, skipping duplicate start');
+    logger.debug(
+      'Transaction sync loop already running, skipping duplicate start',
+    );
     return;
   }
   syncRunning = true;
@@ -104,7 +117,9 @@ export function startTransactionSyncLoop(): void {
           if (record.id !== undefined) {
             markTransactionSyncError([record.id], errorMsg);
           }
-          safeError('Skipping invalid transaction during sync', err, { signature: record.signature });
+          safeError('Skipping invalid transaction during sync', err, {
+            signature: record.signature,
+          });
         }
       }
 
@@ -120,13 +135,25 @@ export function startTransactionSyncLoop(): void {
       try {
         await postTransactionEntries(transactionEntries);
         markTransactionsSynced(validIds);
-        logger.info({ count: validIds.length }, 'Transactions synced successfully');
+        trackTransactionSynced({ count: validIds.length });
+        logger.info(
+          { count: validIds.length },
+          'Transactions synced successfully',
+        );
         if (records.length === TRANSACTION_SYNC_BATCH_SIZE) {
           nextDelay = 1000;
         }
       } catch (batchErr) {
-        const batchErrorMsg = batchErr instanceof Error ? batchErr.message : String(batchErr);
-        logger.warn({ error: batchErrorMsg, count: validIds.length }, 'Batch transaction sync failed, retrying records individually');
+        const batchErrorMsg =
+          batchErr instanceof Error ? batchErr.message : String(batchErr);
+        trackTransactionSyncError({
+          count: validIds.length,
+          error: batchErrorMsg,
+        });
+        logger.warn(
+          { error: batchErrorMsg, count: validIds.length },
+          'Batch transaction sync failed, retrying records individually',
+        );
 
         let failedCount = 0;
 
@@ -141,7 +168,10 @@ export function startTransactionSyncLoop(): void {
             markTransactionsSynced([recordId]);
           } catch (recordErr) {
             failedCount += 1;
-            const errorMsg = recordErr instanceof Error ? recordErr.message : String(recordErr);
+            const errorMsg =
+              recordErr instanceof Error
+                ? recordErr.message
+                : String(recordErr);
             markTransactionSyncError([recordId], errorMsg);
             safeError('Transaction sync failed for record', recordErr, {
               signature: record.signature,
@@ -151,7 +181,10 @@ export function startTransactionSyncLoop(): void {
         }
 
         if (failedCount === 0) {
-          logger.info({ count: validIds.length }, 'Transactions synced successfully after per-record retry');
+          logger.info(
+            { count: validIds.length },
+            'Transactions synced successfully after per-record retry',
+          );
           if (records.length === TRANSACTION_SYNC_BATCH_SIZE) {
             nextDelay = 1000;
           }

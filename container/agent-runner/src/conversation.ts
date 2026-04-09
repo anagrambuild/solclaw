@@ -1,14 +1,14 @@
 /**
  * Conversation persistence — save/load/trim/archive message history.
  *
- * Messages stored as JSON at /workspace/ipc/conversation/history.json.
+ * Messages stored as JSON at /data/ipc/conversation/history.json.
  * Replaces Claude Agent SDK's session resumption with explicit persistence.
  */
 
 import fs from 'fs';
 import path from 'path';
 
-const CONVERSATION_DIR = '/workspace/ipc/conversation';
+const CONVERSATION_DIR = '/data/ipc/conversation';
 const HISTORY_FILE = path.join(CONVERSATION_DIR, 'history.json');
 
 const CHARS_PER_TOKEN = 4;

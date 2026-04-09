@@ -56,16 +56,19 @@ RUN ln -s $(npm root -g)/tsx node_modules/tsx
 # ESM interop for all node processes (safe, no tsx dependency)
 ENV NODE_OPTIONS="--experimental-require-module --require /app/solana-tx-preload.cjs"
 
-# Create workspace directories
-RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input /workspace/ipc/transactions /workspace/ipc/conversation
+# Create workspace and IPC directories (conversation/ needed for multi-model persistence)
+RUN mkdir -p /workspace/group /workspace/global /workspace/extra /data/ipc/messages /data/ipc/tasks /data/ipc/input /data/ipc/transactions /data/ipc/conversation
+
+# Backward-compat symlink: legacy scripts may still reference /workspace/ipc
+RUN ln -sf /data/ipc /workspace/ipc
 
 # Create entrypoint script
 # Secrets are passed via stdin JSON — temp file is deleted immediately after Node reads it
-# Follow-up messages arrive via IPC files in /workspace/ipc/input/
+# Follow-up messages arrive via IPC files in /data/ipc/input/
 RUN printf '#!/bin/bash\nset -e\ncd /app && npx tsc --outDir /tmp/dist 2>&1 >&2\nln -s /app/node_modules /tmp/dist/node_modules\nchmod -R a-w /tmp/dist\ncat > /tmp/input.json\nnode --import tsx /tmp/dist/index.js < /tmp/input.json\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Set ownership to node user (non-root) for writable directories
-RUN chown -R node:node /workspace && chmod 777 /home/node
+RUN chown -R node:node /workspace /data && chmod 777 /home/node
 
 # Switch to non-root user
 USER node

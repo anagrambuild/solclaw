@@ -7,9 +7,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import { CONVERSATION_DIR, CONVERSATION_HISTORY_FILE } from './paths.js';
 
-const CONVERSATION_DIR = '/data/ipc/conversation';
-const HISTORY_FILE = path.join(CONVERSATION_DIR, 'history.json');
+const HISTORY_FILE = CONVERSATION_HISTORY_FILE;
 
 const CHARS_PER_TOKEN = 4;
 

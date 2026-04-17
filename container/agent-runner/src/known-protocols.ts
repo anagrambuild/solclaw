@@ -18,6 +18,7 @@ export const KNOWN_PROTOCOLS = new Set([
   'metaplex',
   'meteora',
   'orca',
+  'phoenix',
   'pumpfun',
   'raydium',
   'swig',

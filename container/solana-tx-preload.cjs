@@ -166,13 +166,16 @@ const KNOWN_PROGRAMS = {
   // Manifest
   'MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms': 'manifest',
   'wMNFSTkir3HgyZTsB7uqu3i7FA73grFCptPXgrZjksL': 'manifest',
+  // Phoenix (perpetual futures)
+  'EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih': 'phoenix',
+  'EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy': 'phoenix',
 };
 
 // Canonical protocol names — keep in sync with src/known-protocols.ts
 const KNOWN_PROTOCOLS_SET = new Set([
   'breeze', 'coingecko', 'crossmint', 'dflow', 'drift', 'glam',
   'helius', 'jupiter', 'kamino', 'manifest', 'marginfi', 'metaplex',
-  'meteora', 'orca', 'pumpfun', 'raydium', 'swig',
+  'meteora', 'orca', 'phoenix', 'pumpfun', 'raydium', 'swig',
   'system-program', 'token-program',
 ]);
 

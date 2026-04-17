@@ -1,0 +1,511 @@
+{
+  "schema_version": "1.0.0",
+  "cli_version": "0.1.0",
+  "description": "Machine-readable command catalog for vulcan. 37 tools across 8 groups.",
+  "groups": {
+    "market": "Market data: prices, orderbooks, candles, funding rates",
+    "trade": "Order management: place, cancel, TP/SL",
+    "position": "Position management: view, close, reduce, bracket orders",
+    "margin": "Collateral management: deposit, withdraw, transfer, leverage tiers",
+    "history": "Trade and account history (not yet implemented)",
+    "status": "Health check and connectivity",
+    "wallet": "Wallet listing and balance",
+    "account": "Account info and registration"
+  },
+  "commands": [
+    {
+      "name": "vulcan_market_list",
+      "command": "vulcan market list",
+      "group": "market",
+      "description": "List all available perpetual markets on Phoenix DEX with fees and leverage info.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [],
+      "example": "vulcan market list -o json"
+    },
+    {
+      "name": "vulcan_market_ticker",
+      "command": "vulcan market ticker",
+      "group": "market",
+      "description": "Get real-time ticker data for a market: mark price, funding rate, 24h volume and change.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" }
+      ],
+      "example": "vulcan market ticker SOL -o json"
+    },
+    {
+      "name": "vulcan_market_info",
+      "command": "vulcan market info",
+      "group": "market",
+      "description": "Get detailed market configuration: tick size, fees, funding params, leverage tiers.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" }
+      ],
+      "example": "vulcan market info SOL -o json"
+    },
+    {
+      "name": "vulcan_market_orderbook",
+      "command": "vulcan market orderbook",
+      "group": "market",
+      "description": "Get L2 orderbook snapshot with bids, asks, mid price, and spread.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "depth", "type": "integer", "required": false, "default": 10, "description": "Number of price levels per side" }
+      ],
+      "example": "vulcan market orderbook SOL --depth 10 -o json"
+    },
+    {
+      "name": "vulcan_market_candles",
+      "command": "vulcan market candles",
+      "group": "market",
+      "description": "Get historical candlestick (OHLCV) data for a market.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "interval", "type": "string", "required": false, "default": "1h", "description": "Candle interval: 1m, 5m, 15m, 1h, 4h, 1d" },
+        { "name": "limit", "type": "integer", "required": false, "default": 50, "description": "Max candles to return" }
+      ],
+      "example": "vulcan market candles SOL --interval 1h --limit 24 -o json"
+    },
+    {
+      "name": "vulcan_trade_market_buy",
+      "command": "vulcan trade market-buy",
+      "group": "trade",
+      "description": "Place a market buy order. Executes immediately at best available price.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "size", "type": "number", "required": true, "description": "Order size in base lots" },
+        { "name": "tp", "type": "number", "required": false, "description": "Optional take-profit price" },
+        { "name": "sl", "type": "number", "required": false, "description": "Optional stop-loss price" },
+        { "name": "isolated", "type": "boolean", "required": false, "description": "Use isolated margin" },
+        { "name": "collateral", "type": "number", "required": false, "description": "USDC collateral for isolated subaccount" },
+        { "name": "reduce_only", "type": "boolean", "required": false, "description": "Order can only reduce existing position" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade market-buy SOL 50 --yes -o json"
+    },
+    {
+      "name": "vulcan_trade_market_sell",
+      "command": "vulcan trade market-sell",
+      "group": "trade",
+      "description": "Place a market sell order. Executes immediately at best available price.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "size", "type": "number", "required": true, "description": "Order size in base lots" },
+        { "name": "tp", "type": "number", "required": false, "description": "Optional take-profit price" },
+        { "name": "sl", "type": "number", "required": false, "description": "Optional stop-loss price" },
+        { "name": "isolated", "type": "boolean", "required": false, "description": "Use isolated margin" },
+        { "name": "collateral", "type": "number", "required": false, "description": "USDC collateral for isolated subaccount" },
+        { "name": "reduce_only", "type": "boolean", "required": false, "description": "Order can only reduce existing position" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade market-sell SOL 50 --yes -o json"
+    },
+    {
+      "name": "vulcan_trade_limit_buy",
+      "command": "vulcan trade limit-buy",
+      "group": "trade",
+      "description": "Place a limit buy order at a specific price. Rests on the book until filled or cancelled.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "size", "type": "number", "required": true, "description": "Order size in base lots" },
+        { "name": "price", "type": "number", "required": true, "description": "Limit price in USD" },
+        { "name": "tp", "type": "number", "required": false, "description": "Optional take-profit price" },
+        { "name": "sl", "type": "number", "required": false, "description": "Optional stop-loss price" },
+        { "name": "isolated", "type": "boolean", "required": false, "description": "Use isolated margin" },
+        { "name": "collateral", "type": "number", "required": false, "description": "USDC collateral for isolated subaccount" },
+        { "name": "reduce_only", "type": "boolean", "required": false, "description": "Order can only reduce existing position" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade limit-buy SOL 50 --price 145.00 --yes -o json"
+    },
+    {
+      "name": "vulcan_trade_limit_sell",
+      "command": "vulcan trade limit-sell",
+      "group": "trade",
+      "description": "Place a limit sell order at a specific price. Rests on the book until filled or cancelled.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "size", "type": "number", "required": true, "description": "Order size in base lots" },
+        { "name": "price", "type": "number", "required": true, "description": "Limit price in USD" },
+        { "name": "tp", "type": "number", "required": false, "description": "Optional take-profit price" },
+        { "name": "sl", "type": "number", "required": false, "description": "Optional stop-loss price" },
+        { "name": "isolated", "type": "boolean", "required": false, "description": "Use isolated margin" },
+        { "name": "collateral", "type": "number", "required": false, "description": "USDC collateral for isolated subaccount" },
+        { "name": "reduce_only", "type": "boolean", "required": false, "description": "Order can only reduce existing position" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade limit-sell SOL 50 --price 155.00 --yes -o json"
+    },
+    {
+      "name": "vulcan_trade_orders",
+      "command": "vulcan trade orders",
+      "group": "trade",
+      "description": "List open orders. Omit symbol to list across all markets.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": false, "description": "Market symbol. Omit to list all markets." }
+      ],
+      "example": "vulcan trade orders -o json"
+    },
+    {
+      "name": "vulcan_trade_cancel",
+      "command": "vulcan trade cancel",
+      "group": "trade",
+      "description": "Cancel specific orders by their IDs.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "order_ids", "type": "array<string>", "required": true, "description": "Order IDs to cancel" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade cancel SOL --order-ids id1 id2 --yes -o json"
+    },
+    {
+      "name": "vulcan_trade_cancel_all",
+      "command": "vulcan trade cancel-all",
+      "group": "trade",
+      "description": "Cancel all open orders for a market.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade cancel-all SOL --yes -o json"
+    },
+    {
+      "name": "vulcan_trade_set_tpsl",
+      "command": "vulcan trade set-tpsl",
+      "group": "trade",
+      "description": "Set take-profit and/or stop-loss on an existing position. Auto-detects position side.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "tp", "type": "number", "required": false, "description": "Take-profit price" },
+        { "name": "sl", "type": "number", "required": false, "description": "Stop-loss price" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade set-tpsl SOL --tp 160 --sl 140 --yes -o json"
+    },
+    {
+      "name": "vulcan_trade_cancel_tpsl",
+      "command": "vulcan trade cancel-tpsl",
+      "group": "trade",
+      "description": "Cancel take-profit and/or stop-loss on an existing position.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "tp", "type": "boolean", "required": false, "description": "Cancel take-profit" },
+        { "name": "sl", "type": "boolean", "required": false, "description": "Cancel stop-loss" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan trade cancel-tpsl SOL --tp --sl --yes -o json"
+    },
+    {
+      "name": "vulcan_position_list",
+      "command": "vulcan position list",
+      "group": "position",
+      "description": "List all open positions across all markets.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [],
+      "example": "vulcan position list -o json"
+    },
+    {
+      "name": "vulcan_position_show",
+      "command": "vulcan position show",
+      "group": "position",
+      "description": "Show detailed info for a specific position: PnL, margin, liquidation price, TP/SL.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" }
+      ],
+      "example": "vulcan position show SOL -o json"
+    },
+    {
+      "name": "vulcan_position_close",
+      "command": "vulcan position close",
+      "group": "position",
+      "description": "Close an entire position via market order on the opposite side.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan position close SOL --yes -o json"
+    },
+    {
+      "name": "vulcan_position_reduce",
+      "command": "vulcan position reduce",
+      "group": "position",
+      "description": "Reduce a position by a specified size via market order on the opposite side.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "size", "type": "number", "required": true, "description": "Size to reduce by in base lots" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan position reduce SOL 25 --yes -o json"
+    },
+    {
+      "name": "vulcan_position_tp_sl",
+      "command": "vulcan position tp-sl",
+      "group": "position",
+      "description": "Attach take-profit and/or stop-loss bracket orders to an existing position.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" },
+        { "name": "tp", "type": "number", "required": false, "description": "Take-profit price" },
+        { "name": "sl", "type": "number", "required": false, "description": "Stop-loss price" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan position tp-sl SOL --tp 160 --sl 140 --yes -o json"
+    },
+    {
+      "name": "vulcan_margin_status",
+      "command": "vulcan margin status",
+      "group": "margin",
+      "description": "Show current margin status: collateral, PnL, risk state, available to withdraw.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [],
+      "example": "vulcan margin status -o json"
+    },
+    {
+      "name": "vulcan_margin_deposit",
+      "command": "vulcan margin deposit",
+      "group": "margin",
+      "description": "Deposit USDC collateral into the trading account.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "amount", "type": "number", "required": true, "description": "USDC amount to deposit" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan margin deposit 100 --yes -o json"
+    },
+    {
+      "name": "vulcan_margin_withdraw",
+      "command": "vulcan margin withdraw",
+      "group": "margin",
+      "description": "Withdraw USDC collateral from the trading account.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "amount", "type": "number", "required": true, "description": "USDC amount to withdraw" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan margin withdraw 50 --yes -o json"
+    },
+    {
+      "name": "vulcan_margin_transfer",
+      "command": "vulcan margin transfer",
+      "group": "margin",
+      "description": "Transfer collateral between subaccounts (e.g., cross-margin to isolated).",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "from_subaccount", "type": "integer", "required": true, "description": "Source subaccount index (0 = cross-margin)" },
+        { "name": "to_subaccount", "type": "integer", "required": true, "description": "Destination subaccount index" },
+        { "name": "amount", "type": "number", "required": true, "description": "USDC amount to transfer" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan margin transfer --from 0 --to 1 --amount 50 --yes -o json"
+    },
+    {
+      "name": "vulcan_margin_transfer_child_to_parent",
+      "command": "vulcan margin sweep",
+      "group": "margin",
+      "description": "Sweep all collateral from a child (isolated) subaccount back to cross-margin.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "child_subaccount", "type": "integer", "required": true, "description": "Child subaccount index to sweep" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan margin sweep --child 1 --yes -o json"
+    },
+    {
+      "name": "vulcan_margin_sync_parent_to_child",
+      "command": "vulcan margin sync",
+      "group": "margin",
+      "description": "Sync parent (cross-margin) state to a child (isolated) subaccount.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "child_subaccount", "type": "integer", "required": true, "description": "Child subaccount index to sync to" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan margin sync --child 1 --yes -o json"
+    },
+    {
+      "name": "vulcan_margin_leverage_tiers",
+      "command": "vulcan margin leverage-tiers",
+      "group": "margin",
+      "description": "Show leverage tier schedule for a market: max leverage and max size per tier.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol, e.g. SOL" }
+      ],
+      "example": "vulcan margin leverage-tiers SOL -o json"
+    },
+    {
+      "name": "vulcan_margin_add_collateral",
+      "command": "vulcan margin add-collateral",
+      "group": "margin",
+      "description": "Add USDC collateral to an isolated position by symbol.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": true, "description": "Market symbol of the isolated position, e.g. SOL" },
+        { "name": "amount", "type": "number", "required": true, "description": "USDC amount to add" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to confirm dangerous operation" }
+      ],
+      "example": "vulcan margin add-collateral SOL --amount 25 --yes -o json"
+    },
+    {
+      "name": "vulcan_history_trades",
+      "command": "vulcan history trades",
+      "group": "history",
+      "description": "Get past trade/fill history. NOT YET IMPLEMENTED.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": false, "description": "Filter by market symbol" },
+        { "name": "limit", "type": "integer", "required": false, "default": 20, "description": "Max results to return" }
+      ],
+      "example": "vulcan history trades -o json"
+    },
+    {
+      "name": "vulcan_history_orders",
+      "command": "vulcan history orders",
+      "group": "history",
+      "description": "Get past order history. NOT YET IMPLEMENTED.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": false, "description": "Filter by market symbol" },
+        { "name": "limit", "type": "integer", "required": false, "default": 20, "description": "Max results to return" }
+      ],
+      "example": "vulcan history orders -o json"
+    },
+    {
+      "name": "vulcan_history_collateral",
+      "command": "vulcan history collateral",
+      "group": "history",
+      "description": "Get collateral deposit/withdrawal history. NOT YET IMPLEMENTED.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [
+        { "name": "limit", "type": "integer", "required": false, "default": 20, "description": "Max results to return" }
+      ],
+      "example": "vulcan history collateral -o json"
+    },
+    {
+      "name": "vulcan_history_funding",
+      "command": "vulcan history funding",
+      "group": "history",
+      "description": "Get funding payment history. NOT YET IMPLEMENTED.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [
+        { "name": "symbol", "type": "string", "required": false, "description": "Filter by market symbol" },
+        { "name": "limit", "type": "integer", "required": false, "default": 20, "description": "Max results to return" }
+      ],
+      "example": "vulcan history funding -o json"
+    },
+    {
+      "name": "vulcan_history_pnl",
+      "command": "vulcan history pnl",
+      "group": "history",
+      "description": "Get PnL history over time. NOT YET IMPLEMENTED.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [
+        { "name": "resolution", "type": "string", "required": false, "default": "hourly", "description": "Resolution: hourly or daily" },
+        { "name": "limit", "type": "integer", "required": false, "default": 24, "description": "Max results to return" }
+      ],
+      "example": "vulcan history pnl --resolution daily -o json"
+    },
+    {
+      "name": "vulcan_status",
+      "command": "vulcan status",
+      "group": "status",
+      "description": "Health check: verify config, wallet, RPC, API, and trader registration status.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [],
+      "example": "vulcan status -o json"
+    },
+    {
+      "name": "vulcan_wallet_list",
+      "command": "vulcan wallet list",
+      "group": "wallet",
+      "description": "List all stored wallets with names, public keys, and default status.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [],
+      "example": "vulcan wallet list -o json"
+    },
+    {
+      "name": "vulcan_wallet_balance",
+      "command": "vulcan wallet balance",
+      "group": "wallet",
+      "description": "Check SOL and USDC balance for a wallet.",
+      "auth_required": false,
+      "dangerous": false,
+      "parameters": [
+        { "name": "name", "type": "string", "required": false, "description": "Wallet name (omit for default wallet)" }
+      ],
+      "example": "vulcan wallet balance -o json"
+    },
+    {
+      "name": "vulcan_account_info",
+      "command": "vulcan account info",
+      "group": "account",
+      "description": "Get trader account info: collateral, positions, risk state.",
+      "auth_required": true,
+      "dangerous": false,
+      "parameters": [],
+      "example": "vulcan account info -o json"
+    },
+    {
+      "name": "vulcan_account_register",
+      "command": "vulcan account register",
+      "group": "account",
+      "description": "Register a new trader account with an invite code.",
+      "auth_required": true,
+      "dangerous": true,
+      "parameters": [
+        { "name": "invite_code", "type": "string", "required": true, "description": "Invite code for registration" },
+        { "name": "acknowledged", "type": "boolean", "required": true, "description": "Must be true to execute" }
+      ],
+      "example": "vulcan account register --invite-code ABC123 --yes -o json"
+    }
+  ]
+}

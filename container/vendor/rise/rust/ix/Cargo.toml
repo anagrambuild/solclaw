@@ -1,0 +1,13 @@
+[package]
+edition      = "2021"
+name         = "phoenix-ix"
+publish      = false
+rust-version = "1.86.0"
+version      = "0.1.0"
+
+[dependencies]
+borsh              = { workspace = true }
+sha2               = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey      = { workspace = true }
+thiserror          = { workspace = true }

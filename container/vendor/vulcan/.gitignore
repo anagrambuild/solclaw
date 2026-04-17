@@ -1,0 +1,25 @@
+# Build
+target
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Vulcan user data
+.vulcan/
+
+# MCP config (contains user-specific paths)
+.mcp.json

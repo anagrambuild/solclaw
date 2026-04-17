@@ -686,6 +686,20 @@ async function main(): Promise<void> {
     sdkEnv[key] = value;
   }
 
+  // Selectively expose tool-specific secrets to process.env so CLI tools
+  // invoked via Bash can read them (e.g. vulcan reads VULCAN_WALLET_PASSWORD).
+  // LLM API keys are intentionally excluded.
+  const TOOL_ENV_KEYS = [
+    'DFLOW_API_KEY',
+    'JUPITER_API_KEY',
+    'BREEZE_API_KEY',
+    'HELIUS_API_KEY',
+  ];
+  for (const key of TOOL_ENV_KEYS) {
+    const val = containerInput.secrets?.[key];
+    if (val) process.env[key] = val;
+  }
+
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const mcpServerPath = path.join(__dirname, 'ipc-mcp-stdio.js');
 

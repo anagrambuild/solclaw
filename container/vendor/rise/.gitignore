@@ -1,0 +1,7 @@
+.claude
+.context
+**/target
+**/__pycache__
+
+.zed
+dist

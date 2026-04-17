@@ -1,0 +1,16 @@
+[package]
+edition      = "2021"
+name         = "phoenix-sdk-cli"
+publish      = false
+rust-version = "1.86.0"
+version      = "0.1.0"
+
+[dependencies]
+phoenix-sdk = { path = "../sdk" }
+
+clap          = { version = "4.5", features = ["derive"] }
+serde         = { workspace = true }
+serde_json    = { workspace = true }
+solana-pubkey = { workspace = true }
+tokio         = { workspace = true }
+url           = { workspace = true }

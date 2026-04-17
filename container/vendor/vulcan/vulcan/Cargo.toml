@@ -1,0 +1,20 @@
+[package]
+name = "vulcan"
+version = "0.1.0"
+edition = "2021"
+description = "Vulcan — AI-native CLI for Phoenix Perpetuals DEX on Solana"
+
+[[bin]]
+name = "vulcan"
+path = "src/main.rs"
+
+[dependencies]
+vulcan-lib = { workspace = true }
+
+clap    = { workspace = true }
+tokio   = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow  = { workspace = true }
+rpassword = { workspace = true }
+rmcp    = { workspace = true }

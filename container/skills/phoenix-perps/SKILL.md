@@ -255,3 +255,51 @@ Route on `.error.category`:
 4. **Never execute trades without user confirmation** unless they explicitly opted into auto-execute mode.
 5. **Report all transaction signatures** to the user for on-chain verification.
 6. **On `tx_failed`, verify state before retrying** — the tx may have partially succeeded.
+
+## Detailed Skills
+
+Load these sub-skills for deeper guidance on specific topics.
+
+### Core
+
+| Skill | Path | Description |
+|-------|------|-------------|
+| Shared Contract | `phoenix-vulcan-shared/` | Auth, invocation contract, symbol format, size units, safety rules |
+| Risk Management | `phoenix-vulcan-risk-management/` | Pre-trade risk checks, leverage tiers, margin health, when to warn |
+| Error Recovery | `phoenix-vulcan-error-recovery/` | Error category routing, tx_failed recovery, network error handling |
+
+### Trading
+
+| Skill | Path | Description |
+|-------|------|-------------|
+| Trade Execution | `phoenix-vulcan-trade-execution/` | Safe order execution with pre/post-trade checks |
+| Lot Size Calculator | `phoenix-vulcan-lot-size-calculator/` | Convert token amounts to base lots with worked examples |
+| TP/SL Management | `phoenix-vulcan-tpsl-management/` | Take-profit and stop-loss: direction rules, set/cancel flows |
+| TWAP Execution | `phoenix-vulcan-twap-execution/` | Time-weighted average price execution for large orders |
+| Grid Trading | `phoenix-vulcan-grid-trading/` | Layered limit orders across a price range |
+
+### Market Data
+
+| Skill | Path | Description |
+|-------|------|-------------|
+| Market Intel | `phoenix-vulcan-market-intel/` | Ticker, orderbook, candles, pre-trade analysis |
+
+### Portfolio & Account
+
+| Skill | Path | Description |
+|-------|------|-------------|
+| Portfolio Intel | `phoenix-vulcan-portfolio-intel/` | Portfolio snapshot: margin, positions, orders, funding |
+| Margin Operations | `phoenix-vulcan-margin-operations/` | Deposit, withdraw, transfer, isolated margin |
+| Position Management | `phoenix-vulcan-position-management/` | List, show, close, reduce, attach TP/SL |
+| Onboarding | `phoenix-vulcan-onboarding/` | New user setup: wallet creation, registration, first deposit |
+
+### Recipes (Multi-Step Workflows)
+
+| Recipe | Path | Description |
+|--------|------|-------------|
+| Emergency Flatten | `phoenix-recipe-emergency-flatten/` | Cancel all orders and close all positions |
+| Open Hedged Position | `phoenix-recipe-open-hedged-position/` | Open position with TP/SL in one flow |
+| Morning Portfolio Check | `phoenix-recipe-morning-portfolio-check/` | Daily portfolio review |
+| Scale Into Position | `phoenix-recipe-scale-into-position/` | Add to position in calculated increments |
+| Funding Rate Harvest | `phoenix-recipe-funding-rate-harvest/` | Scan for favorable funding and open positions |
+| Close and Withdraw | `phoenix-recipe-close-and-withdraw/` | Close all and withdraw collateral to wallet |

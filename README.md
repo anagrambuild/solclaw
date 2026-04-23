@@ -5,6 +5,7 @@
 ## Features
 
 - 🔗 **60+ Solana Actions** - Trade, stake, lend, deploy tokens, mint NFTs
+- 🧠 **Swig Smart Wallets** - Create and operate Swig wallets with first-class MCP support
 - 💬 **Natural Language** - "Swap 0.1 SOL for USDC" → Executes on-chain
 - 📱 **WhatsApp/Telegram** - Chat with your agent from your phone
 - 🔐 **Secure** - Isolated containers, private key protection
@@ -19,7 +20,7 @@ cd solclaw
 claude
 ```
 
-and after claude code has been started run ```/setup ``` in the claude code itself
+and after claude code has been started run `/setup` in Claude Code itself
 
 ## Example Commands
 

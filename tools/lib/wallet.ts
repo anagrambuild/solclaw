@@ -85,7 +85,9 @@ export interface WalletConfig {
   rpcUrl: string;
 }
 
-export function loadWallet(configPath = 'config/solana-config.json'): WalletConfig {
+export function loadWallet(
+  configPath = 'config/solana-config.json',
+): WalletConfig {
   // Dashboard-injected key takes priority over config file
   const injectedKey = process.env.SOLCLAW_WALLET_PRIVATE_KEY;
   if (injectedKey) {
@@ -107,21 +109,42 @@ export function loadWallet(configPath = 'config/solana-config.json'): WalletConf
 
   const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
-  const method = raw.wallet?.signingMethod ?? (raw.wallet?.provider === 'solana-agent-kit' ? 'standard' : raw.wallet?.signingMethod);
+  const method =
+    raw.wallet?.signingMethod ??
+    (raw.wallet?.provider === 'solana-agent-kit'
+      ? 'standard'
+      : raw.wallet?.signingMethod);
   if (method === 'crossmint') {
-    console.error('Error: This tool requires a local keypair. Your config uses Crossmint signing.');
-    console.error('Use the Crossmint MCP tools instead (crossmint_get_balance, crossmint_transfer, etc.).');
+    console.error(
+      'Error: This tool requires a local keypair. Your config uses Crossmint signing.',
+    );
+    console.error(
+      'Use the Crossmint MCP tools instead (crossmint_get_balance, crossmint_transfer, etc.).',
+    );
+    process.exit(1);
+  }
+
+  if (method === 'swig') {
+    console.error(
+      'Error: This tool requires direct keypair signing. Your config uses a Swig smart wallet.',
+    );
+    console.error(
+      'Use the Swig MCP tools instead (configure_rpc, fetch_swig_wallet, transact_sol_transfer, etc.).',
+    );
     process.exit(1);
   }
 
   if (!raw.wallet?.privateKey) {
-    console.error('Error: No private key found in config. Run: npm run setup:solana');
+    console.error(
+      'Error: No private key found in config. Run: npm run setup:solana',
+    );
     process.exit(1);
   }
 
   const secretKey = bs58.decode(raw.wallet.privateKey);
   const keypair = Keypair.fromSecretKey(secretKey);
-  const rpcUrl = raw.preferences?.rpcUrl ?? 'https://api.breeze.baby/agent/rpc-mainnet-beta';
+  const rpcUrl =
+    raw.preferences?.rpcUrl ?? 'https://api.breeze.baby/agent/rpc-mainnet-beta';
   const connection = new Connection(rpcUrl, 'confirmed');
 
   return { keypair, connection, publicKey: keypair.publicKey, rpcUrl };
@@ -135,7 +158,9 @@ export function resolveMint(tokenOrMint: string): string {
 
 /** Jupiter API base — uses free lite-api unless JUPITER_API_KEY is set */
 export function jupiterBase(): string {
-  return process.env.JUPITER_API_KEY ? 'https://api.jup.ag' : 'https://lite-api.jup.ag';
+  return process.env.JUPITER_API_KEY
+    ? 'https://api.jup.ag'
+    : 'https://lite-api.jup.ag';
 }
 
 const IPC_TRANSACTIONS_DIR = '/data/ipc/transactions';
@@ -151,8 +176,12 @@ async function syncTransactionToApi(
   const apiUrl =
     process.env.TRANSACTION_SYNC_API_URL ||
     'https://api.breeze.baby/agent/stats-sync-up';
-  const entry: Record<string, unknown> = { signature, protocol, wallet_address: walletAddress };
-  if (mint)   entry.mint   = mint;
+  const entry: Record<string, unknown> = {
+    signature,
+    protocol,
+    wallet_address: walletAddress,
+  };
+  if (mint) entry.mint = mint;
   if (amount) entry.amount = parseFloat(amount);
   try {
     await fetch(apiUrl, {
@@ -190,7 +219,9 @@ function logTransactionIpc(
     fs.writeFileSync(tempPath, JSON.stringify(data, null, 2));
     fs.renameSync(tempPath, filepath);
   } catch (err) {
-    console.error(`[logTransactionIpc] Failed to log transaction: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `[logTransactionIpc] Failed to log transaction: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   // Fire-and-forget direct API sync
@@ -222,9 +253,8 @@ export async function signSendAndLog(
   opts: SendAndLogOpts,
 ): Promise<string> {
   const { VersionedTransaction, Transaction } = await import('@solana/web3.js');
-  const bytes = typeof txData === 'string'
-    ? Buffer.from(txData, 'base64')
-    : txData;
+  const bytes =
+    typeof txData === 'string' ? Buffer.from(txData, 'base64') : txData;
 
   let sig: string;
   try {
@@ -238,7 +268,13 @@ export async function signSendAndLog(
   }
 
   await connection.confirmTransaction(sig, opts.commitment || 'confirmed');
-  logTransactionIpc(sig, opts.protocol, keypair.publicKey.toBase58(), opts.mint, opts.amount);
+  logTransactionIpc(
+    sig,
+    opts.protocol,
+    keypair.publicKey.toBase58(),
+    opts.mint,
+    opts.amount,
+  );
 
   return sig;
 }

@@ -1,5 +1,5 @@
 # SolClaw Agent Container
-# Runs Claude Agent SDK in isolated Linux VM with browser automation
+# Runs OpenRouter SDK in isolated Linux VM with browser automation
 
 FROM node:22-slim
 
@@ -29,8 +29,8 @@ RUN apt-get update && apt-get install -y \
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install agent-browser, claude-code, and tsx globally (before NODE_OPTIONS is set)
-RUN npm install -g agent-browser @anthropic-ai/claude-code tsx
+# Install agent-browser and tsx globally (before NODE_OPTIONS is set)
+RUN npm install -g agent-browser tsx
 
 # Create app directory
 WORKDIR /app
@@ -56,8 +56,8 @@ RUN ln -s $(npm root -g)/tsx node_modules/tsx
 # ESM interop for all node processes (safe, no tsx dependency)
 ENV NODE_OPTIONS="--experimental-require-module --require /app/solana-tx-preload.cjs"
 
-# Create workspace and IPC directories
-RUN mkdir -p /workspace/group /workspace/global /workspace/extra /data/ipc/messages /data/ipc/tasks /data/ipc/input /data/ipc/transactions
+# Create workspace and IPC directories (conversation/ needed for multi-model persistence)
+RUN mkdir -p /workspace/group /workspace/global /workspace/extra /data/ipc/messages /data/ipc/tasks /data/ipc/input /data/ipc/transactions /data/ipc/conversation
 
 # Backward-compat symlink: legacy scripts may still reference /workspace/ipc
 RUN ln -sf /data/ipc /workspace/ipc
@@ -70,7 +70,7 @@ RUN printf '#!/bin/bash\nset -e\ncd /app && npx tsc --outDir /tmp/dist 2>&1 >&2\
 # Set ownership to node user (non-root) for writable directories
 RUN chown -R node:node /workspace /data && chmod 777 /home/node
 
-# Switch to non-root user (required for --dangerously-skip-permissions)
+# Switch to non-root user
 USER node
 
 # Set working directory to group workspace
